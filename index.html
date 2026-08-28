@@ -84,6 +84,20 @@
 
   /* ---- right: viewer ---- */
   .viewer{display:flex; flex-direction:column;}
+
+  /* view tabs: Burbujas / Matrices */
+  .view-tabs{display:flex; border-bottom:1px solid var(--border); background:var(--panel);}
+  .view-tabs button{
+    font:600 11px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase;
+    padding:12px 20px; background:transparent; color:var(--ink-soft);
+    border:none; border-right:1px solid var(--border); border-radius:0;
+  }
+  .view-tabs button.active{color:var(--ink); background:#fff; box-shadow:inset 0 -2px 0 var(--ink);}
+  .view-tabs button:hover{opacity:1; color:var(--ink);}
+
+  .view-pane{display:none;}
+  .view-pane.active{display:block;}
+
   .toolbar{
     display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--border);
     background:var(--panel); flex-wrap:wrap;
@@ -114,6 +128,26 @@
 
   .bubble-label{font:600 10.5px var(--sans); fill:var(--panel); text-anchor:middle; pointer-events:none;}
   .bubble-area{font:9px var(--mono); fill:var(--panel); text-anchor:middle; opacity:.85; pointer-events:none;}
+
+  /* ---- matrices view ---- */
+  .matrix-grid{padding:18px; display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start;}
+  @media (max-width:1100px){ .matrix-grid{grid-template-columns:1fr;} }
+  .matrix-panel{background:#fff; border:1px solid var(--border); padding:16px; overflow:hidden;}
+  .matrix-panel.full{grid-column:1 / -1;}
+  .matrix-head{margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border);}
+  .matrix-head .t1{font:700 15px var(--sans); color:var(--ink); display:block;}
+  .matrix-head .t2{font:italic 12px var(--sans); color:var(--ink-soft); display:block;}
+  .matrix-body{display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start;}
+  .matrix-svg-wrap{overflow-x:auto; max-width:100%;}
+  .matrix-legend-list{font:11px var(--mono); color:var(--ink-soft); min-width:190px;}
+  .matrix-legend-list .lg-title{font:700 10px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--ink); margin-bottom:8px;}
+  .matrix-legend-list .lg-row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+  .matrix-legend-list svg{flex:none;}
+  .motivo-list{font:11px var(--sans); color:var(--ink-soft); line-height:1.65; margin:0; padding-left:18px;}
+  .motivo-list li{margin-bottom:4px;}
+  .row-label{font-size:11px; font-family:'Public Sans',sans-serif; fill:#17233B;}
+  .row-index{font-size:10px; font-family:'JetBrains Mono',monospace; font-style:italic; fill:#8A93A3;}
+  .empty-note{font:11px var(--mono); color:var(--ink-faint); padding:6px 0;}
 
   footer{padding:10px 18px; font:11px var(--mono); color:var(--ink-faint); border-top:1px solid var(--border);}
 </style>
@@ -179,22 +213,33 @@
   </aside>
 
   <div class="viewer">
-    <div class="toolbar">
-      <div class="field">N.º variantes <input type="range" id="rNumConfigs" min="2" max="8" value="4"><span class="val" id="vNumConfigs">4</span></div>
-      <div class="field">Repulsión general <input type="range" id="rCharge" min="40" max="260" value="130"><span class="val" id="vCharge">130</span></div>
-      <div class="tb-spacer"></div>
-      <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
-      <button class="ghost" id="btnExportSVG">Exportar SVG</button>
+    <div class="view-tabs">
+      <button class="tab-btn active" data-view="burbujas" type="button">Burbujas</button>
+      <button class="tab-btn" data-view="matrices" type="button">Matrices</button>
     </div>
 
-    <div class="grid-wrap" id="grid"></div>
-
-    <div class="detail">
-      <div class="detail-head">
-        <h2>Variante seleccionada</h2>
-        <span id="scoreLabel" style="font:11px var(--mono); color:var(--ink-soft);"></span>
+    <div class="view-pane active" id="paneBurbujas">
+      <div class="toolbar">
+        <div class="field">N.º variantes <input type="range" id="rNumConfigs" min="2" max="8" value="4"><span class="val" id="vNumConfigs">4</span></div>
+        <div class="field">Repulsión general <input type="range" id="rCharge" min="40" max="260" value="130"><span class="val" id="vCharge">130</span></div>
+        <div class="tb-spacer"></div>
+        <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
+        <button class="ghost" id="btnExportSVG">Exportar SVG</button>
       </div>
-      <div class="detail-frame"><svg id="mainSvg" viewBox="0 0 720 560"></svg></div>
+
+      <div class="grid-wrap" id="grid"></div>
+
+      <div class="detail">
+        <div class="detail-head">
+          <h2>Variante seleccionada</h2>
+          <span id="scoreLabel" style="font:11px var(--mono); color:var(--ink-soft);"></span>
+        </div>
+        <div class="detail-frame"><svg id="mainSvg" viewBox="0 0 720 560"></svg></div>
+      </div>
+    </div>
+
+    <div class="view-pane" id="paneMatrices">
+      <div class="matrix-grid" id="matrixGrid"></div>
     </div>
   </div>
 </main>
@@ -225,6 +270,17 @@ const IMPORTANCIA = {
   'por-decidir': {label:'Por decidir', strength:0.1,  width:1,   dash:'1 5',    color:'var(--ink-faint)'},
 };
 const PLANTA_COLOR = { baja: 'var(--baja)', alta: 'var(--alta)' };
+
+/* colores planos para la vista de Matrices (rombos rellenos: no pueden usar
+   var(--x) porque el navegador no las resuelve dentro de un string SVG
+   generado por template literal en algunos exportadores) */
+const MATRIZ_COLOR = {
+  mandatoria:   '#2F6D9C',
+  deseable:     '#E08A2B',
+  neutral:      '#B9BEC7',
+  negativa:     '#B5432E',
+  'por-decidir': null
+};
 
 /* =========================================================================
    2) DATOS — estructura mínima. Reemplacen cargarEjemplo() por su propio
@@ -381,7 +437,7 @@ function generateConfigs(count, chargeStrength){
 }
 
 /* =========================================================================
-   4) RENDER
+   4) RENDER — diagrama de burbujas (sin cambios en esta versión)
    ========================================================================= */
 let currentConfigs = [];
 let selectedIndex = 0;
@@ -442,6 +498,210 @@ function renderLegend(){
 }
 
 /* =========================================================================
+   4b) RENDER — vista de Matrices (Importancia Relativa / Relación Física /
+       Deseos y Motivos). Se dibuja como matriz triangular en rombos, igual
+       en lógica a las láminas AutoCAD del estudio: fila i vs fila j (j>i)
+       se ubica a la mitad de altura entre ambas filas, y se desplaza a la
+       derecha según cuántas filas de distancia hay entre ellas.
+   ========================================================================= */
+function findEdge(a,b){
+  return edges.find(e=>{
+    const s=e.source.id||e.source, t=e.target.id||e.target;
+    return (s===a && t===b) || (s===b && t===a);
+  });
+}
+
+function diamondPath(cx,cy,r){
+  return `M ${cx} ${cy-r} L ${cx+r} ${cy} L ${cx} ${cy+r} L ${cx-r} ${cy} Z`;
+}
+function trianglePoly(cx,cy,r,filled){
+  const pts = `${cx},${cy-r} ${cx+r*0.95},${cy+r*0.72} ${cx-r*0.95},${cy+r*0.72}`;
+  return `<polygon points="${pts}" fill="${filled?'#17233B':'#fff'}" stroke="#17233B" stroke-width="1.3"/>`;
+}
+function glyphMarkup(key, cx, cy, r){
+  switch(key){
+    case 'contencion-abierta': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="1.3"/>`;
+    case 'contencion-cerrada': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B"/>`;
+    case 'contiguo-abierta':   return trianglePoly(cx,cy,r,false);
+    case 'contiguo-cerrada':   return trianglePoly(cx,cy,r,true);
+    case 'neutro':             return `<rect x="${cx-r*0.78}" y="${cy-r*0.78}" width="${r*1.56}" height="${r*1.56}" fill="#B9BEC7"/>`;
+    case 'separacion-barrera': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="1.3" stroke-dasharray="2 2"/>`;
+    case 'separacion-locacion':return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B" stroke="#fff" stroke-width="1.4"/>`;
+    default: return `<path d="${diamondPath(cx,cy,r)}" fill="none" stroke="#C7CEDA" stroke-width="1"/>`; // por-decidir
+  }
+}
+
+function matrixLayout(nodeList, rowH){
+  const unit = rowH/2;
+  const labelW = 235;
+  const rows = nodeList.map((n,i)=>({...n, idx:i, y: i*rowH + rowH/2}));
+  const pairs = [];
+  for(let i=0;i<rows.length;i++){
+    for(let j=i+1;j<rows.length;j++){
+      pairs.push({ i, j, x: labelW + (j-i-1)*unit + unit, y:(rows[i].y+rows[j].y)/2 });
+    }
+  }
+  const width  = labelW + Math.max(1,(rows.length-1))*unit + 24;
+  const height = Math.max(1,rows.length)*rowH + 8;
+  return {rows, pairs, width, height, labelW, rowH};
+}
+
+function drawRowLabels(L){
+  let s='';
+  L.rows.forEach(r=>{
+    s += `<text class="row-index" x="4" y="${r.y+3}">${String(r.idx+1).padStart(2,'0')}</text>`;
+    s += `<text class="row-label" x="30" y="${r.y+3}">${r.id}</text>`;
+  });
+  return s;
+}
+
+function svgMatrixImportancia(){
+  const rowH=32;
+  const L = matrixLayout(nodes, rowH);
+  let s = `<svg viewBox="0 0 ${L.width} ${L.height}" width="${L.width}" height="${L.height}">`;
+  s += drawRowLabels(L);
+  const r = Math.min(rowH*0.31, 10);
+  L.pairs.forEach(p=>{
+    const a=L.rows[p.i], b=L.rows[p.j];
+    const e = findEdge(a.id,b.id);
+    if(e){
+      const fill = MATRIZ_COLOR[e.importancia];
+      s += `<path d="${diamondPath(p.x,p.y,r)}" fill="${fill||'#fff'}" stroke="#8A93A3" stroke-width="1"><title>${a.id} — ${b.id}: ${IMPORTANCIA[e.importancia].label}</title></path>`;
+    } else {
+      s += `<path d="${diamondPath(p.x,p.y,r*0.55)}" fill="none" stroke="#E3E6EC" stroke-width="1"/>`;
+    }
+  });
+  s += `</svg>`;
+  return s;
+}
+
+function svgMatrixFisica(){
+  const rowH=32;
+  const L = matrixLayout(nodes, rowH);
+  let s = `<svg viewBox="0 0 ${L.width} ${L.height}" width="${L.width}" height="${L.height}">`;
+  s += drawRowLabels(L);
+  const r = Math.min(rowH*0.26, 8);
+  L.pairs.forEach(p=>{
+    const a=L.rows[p.i], b=L.rows[p.j];
+    const e = findEdge(a.id,b.id);
+    if(e){
+      s += `<g><title>${a.id} — ${b.id}: ${FISICA[e.fisica].label}</title>${glyphMarkup(e.fisica,p.x,p.y,r)}</g>`;
+    } else {
+      s += `<path d="${diamondPath(p.x,p.y,r*0.6)}" fill="none" stroke="#E3E6EC" stroke-width="1"/>`;
+    }
+  });
+  s += `</svg>`;
+  return s;
+}
+
+/* -- leyenda de motivos: texto libre en la tabla de relaciones, número
+      autogenerado y sincronizado con el textarea "Leyenda de motivos"
+      (mismo formato de pie de lámina: "1. texto del motivo") -- */
+function parseMotivosLegend(){
+  const raw = document.getElementById('fMotivos').value;
+  const map = new Map();
+  let maxNum = 0;
+  raw.split('\n').forEach(line=>{
+    const m = line.match(/^\s*(\d+)\.\s*(.+?)\s*$/);
+    if(m){ const num=+m[1]; map.set(m[2], num); if(num>maxNum) maxNum=num; }
+  });
+  return {map, maxNum};
+}
+function syncMotivoLegend(){
+  const {map, maxNum} = parseMotivosLegend();
+  let next = maxNum;
+  const additions = [];
+  edges.forEach(e=>{
+    const text = (e.motivo||'').trim();
+    if(text && !map.has(text)){
+      next++; map.set(text, next); additions.push(`${next}. ${text}`);
+    }
+  });
+  if(additions.length){
+    const ta = document.getElementById('fMotivos');
+    ta.value = (ta.value.trim() ? ta.value.trim()+'\n' : '') + additions.join('\n');
+  }
+  return map;
+}
+
+function svgMatrixMotivos(motivoMap){
+  const rowH=32;
+  const L = matrixLayout(nodes, rowH);
+  let s = `<svg viewBox="0 0 ${L.width} ${L.height}" width="${L.width}" height="${L.height}">`;
+  s += drawRowLabels(L);
+  const r = Math.min(rowH*0.31, 10);
+  L.pairs.forEach(p=>{
+    const a=L.rows[p.i], b=L.rows[p.j];
+    const e = findEdge(a.id,b.id);
+    const text = e && e.motivo ? e.motivo.trim() : '';
+    if(text){
+      const num = motivoMap.get(text) || '?';
+      s += `<g><title>${a.id} — ${b.id}: ${text}</title>
+        <path d="${diamondPath(p.x,p.y,r)}" fill="#fff" stroke="#8A93A3" stroke-width="1"/>
+        <text x="${p.x}" y="${p.y+3}" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#17233B">${num}</text>
+      </g>`;
+    } else {
+      s += `<path d="${diamondPath(p.x,p.y,r*0.55)}" fill="none" stroke="#E3E6EC" stroke-width="1"/>`;
+    }
+  });
+  s += `</svg>`;
+  return s;
+}
+
+function legendSwatchImportancia(){
+  return Object.entries(IMPORTANCIA).map(([k,v])=>{
+    const fill = MATRIZ_COLOR[k];
+    return `<div class="lg-row"><svg width="18" height="18"><path d="${diamondPath(9,9,7)}" fill="${fill||'#fff'}" stroke="#8A93A3" stroke-width="1"/></svg>${v.label}</div>`;
+  }).join('');
+}
+function legendSwatchFisica(){
+  return Object.entries(FISICA).map(([k,v])=>{
+    return `<div class="lg-row"><svg width="18" height="18">${glyphMarkup(k,9,9,6)}</svg>${v.label}</div>`;
+  }).join('');
+}
+
+function renderMatrices(){
+  const proyecto = document.getElementById('fProyecto').value || 'PROYECTO';
+  const grid = document.getElementById('matrixGrid');
+  if(!nodes.length){
+    grid.innerHTML = `<div class="empty-note">Agrega espacios en la tabla de la izquierda para ver las matrices.</div>`;
+    return;
+  }
+  const motivoMap = syncMotivoLegend();
+  const motivoListHtml = '<ol class="motivo-list">' +
+    [...motivoMap.entries()].sort((a,b)=>a[1]-b[1]).map(([text])=>`<li>${text}</li>`).join('') +
+    '</ol>';
+
+  grid.innerHTML = `
+    <div class="matrix-panel">
+      <div class="matrix-head"><span class="t1">${proyecto}</span><span class="t2">Importancia Relativa</span></div>
+      <div class="matrix-body">
+        <div class="matrix-svg-wrap">${svgMatrixImportancia()}</div>
+        <div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchImportancia()}</div>
+      </div>
+    </div>
+    <div class="matrix-panel">
+      <div class="matrix-head"><span class="t1">${proyecto}</span><span class="t2">Relación Física</span></div>
+      <div class="matrix-body">
+        <div class="matrix-svg-wrap">${svgMatrixFisica()}</div>
+        <div class="matrix-legend-list"><div class="lg-title">Relación Física</div>${legendSwatchFisica()}</div>
+      </div>
+    </div>
+    <div class="matrix-panel full">
+      <div class="matrix-head"><span class="t1">${proyecto}</span><span class="t2">Deseos y Motivos</span></div>
+      <div class="matrix-body">
+        <div class="matrix-svg-wrap">${svgMatrixMotivos(motivoMap)}</div>
+        <div class="matrix-legend-list" style="min-width:280px;"><div class="lg-title">Deseos y Motivos</div>${motivoListHtml || '<span style="opacity:.6;">Sin motivos capturados aún.</span>'}</div>
+      </div>
+    </div>
+  `;
+}
+
+function refreshMatricesIfVisible(){
+  if(document.getElementById('paneMatrices').classList.contains('active')) renderMatrices();
+}
+
+/* =========================================================================
    5) TABLAS EDITABLES
    ========================================================================= */
 function renderTables(){
@@ -461,9 +721,10 @@ function renderTables(){
   tb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, f=e.target.dataset.f;
     nodes[i][f] = f==='area' ? parseFloat(e.target.value)||0 : e.target.value;
+    refreshMatricesIfVisible();
   });
   tb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
-    nodes.splice(+e.target.dataset.del,1); renderTables();
+    nodes.splice(+e.target.dataset.del,1); renderTables(); refreshMatricesIfVisible();
   });
 
   const teb = document.querySelector('#tblEdges tbody');
@@ -483,9 +744,10 @@ function renderTables(){
   teb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, f=e.target.dataset.f;
     edges[i][f] = e.target.value;
+    refreshMatricesIfVisible();
   });
   teb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
-    edges.splice(+e.target.dataset.del,1); renderTables();
+    edges.splice(+e.target.dataset.del,1); renderTables(); refreshMatricesIfVisible();
   });
 }
 
@@ -537,21 +799,37 @@ function autoGenerate(){
   selectedIndex = 0;
   renderGrid();
   renderDetail();
+  refreshMatricesIfVisible();
 }
 
 document.getElementById('btnEjemplo').onclick = ejemplo;
-document.getElementById('btnGenerar').onclick = ()=>{ renderTables.length; autoGenerate(); };
+document.getElementById('btnGenerar').onclick = ()=>{ autoGenerate(); };
 document.getElementById('btnExportJSON').onclick = exportJSON;
 document.getElementById('btnExportSVG').onclick = exportSVG;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
   if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:'baja'});
   else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});
   renderTables();
+  refreshMatricesIfVisible();
 });
 ['rNumConfigs','rCharge'].forEach(id=>{
   const el = document.getElementById(id);
   const val = document.getElementById('v'+id.slice(1));
   el.oninput = ()=>{ val.textContent = el.value; };
+});
+document.getElementById('fMotivos').addEventListener('input', refreshMatricesIfVisible);
+document.getElementById('fProyecto').addEventListener('input', refreshMatricesIfVisible);
+
+/* pestañas: Burbujas / Matrices — la consola izquierda (aside) no se toca */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view-pane').forEach(p=>p.classList.remove('active'));
+    const paneId = btn.dataset.view==='burbujas' ? 'paneBurbujas' : 'paneMatrices';
+    document.getElementById(paneId).classList.add('active');
+    if(btn.dataset.view==='matrices') renderMatrices();
+  };
 });
 
 /* =========================================================================

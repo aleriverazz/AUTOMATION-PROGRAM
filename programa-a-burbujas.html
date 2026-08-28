@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Programa → Burbujas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root{
+    --paper:#EDEFF3;
+    --paper-line:#D7DCE3;
+    --panel:#F7F8FA;
+    --ink:#17233B;
+    --ink-soft:#4A5771;
+    --ink-faint:#8A93A3;
+    --baja:#B9862E;
+    --alta:#3E6E8E;
+    --negativa:#B5432E;
+    --border:#C7CEDA;
+    --mono:'JetBrains Mono',monospace;
+    --sans:'Public Sans',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/32px 32px,
+      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px) 0 0/32px 32px,
+      var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+  }
+  /* ---- title block, a nod to a drawing sheet's cajetín ---- */
+  header{
+    display:flex; align-items:stretch; flex-wrap:wrap;
+    border-bottom:2px solid var(--ink);
+    background:var(--panel);
+  }
+  .tb-field{
+    padding:10px 18px; border-right:1px solid var(--border);
+    display:flex; flex-direction:column; justify-content:center; gap:2px;
+  }
+  .tb-field label{font:600 10px/1 var(--mono); letter-spacing:.08em; color:var(--ink-faint); text-transform:uppercase;}
+  .tb-field input, .tb-field select{
+    font:600 14px/1.2 var(--mono); color:var(--ink); border:none; background:transparent; padding:2px 0; width:100%;
+  }
+  .tb-field input:focus, .tb-field select:focus{outline:none; color:var(--negativa);}
+  .tb-spacer{flex:1;}
+  .tb-actions{display:flex; align-items:center; gap:8px; padding:10px 18px;}
+  button{
+    font:600 12px/1 var(--mono); letter-spacing:.04em; text-transform:uppercase;
+    padding:10px 14px; background:var(--ink); color:var(--panel); border:1px solid var(--ink);
+    cursor:pointer; transition:opacity .15s;
+  }
+  button.ghost{background:transparent; color:var(--ink); border:1px solid var(--border);}
+  button:hover{opacity:.82;}
+  button:active{opacity:.65;}
+
+  main{display:grid; grid-template-columns:340px 1fr; min-height:calc(100vh - 64px);}
+  @media (max-width:860px){ main{grid-template-columns:1fr;} }
+
+  /* ---- left: data ---- */
+  aside{border-right:2px solid var(--ink); background:var(--panel); padding:16px; overflow:auto;}
+  .section-title{
+    font:700 11px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft);
+    margin:18px 0 8px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .section-title:first-child{margin-top:0;}
+  table{width:100%; border-collapse:collapse; font:12px/1.3 var(--sans);}
+  th{font:600 10px/1 var(--mono); text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); text-align:left; padding:4px 3px; border-bottom:1px solid var(--border);}
+  td{padding:3px; border-bottom:1px solid #E3E6EC; vertical-align:middle;}
+  td input, td select{width:100%; font:12px var(--sans); border:1px solid transparent; background:transparent; padding:3px 2px; border-radius:2px;}
+  td input:focus, td select:focus{outline:none; border-color:var(--border); background:#fff;}
+  td.num input{width:44px;}
+  .row-del{cursor:pointer; color:var(--ink-faint); font-family:var(--mono); font-size:14px; text-align:center;}
+  .row-del:hover{color:var(--negativa);}
+  .add-row{font:11px var(--mono); color:var(--ink-soft); background:none; border:1px dashed var(--border); width:100%; padding:6px; margin-top:6px; text-transform:none; letter-spacing:0;}
+
+  .legend-mini{font:11px var(--mono); color:var(--ink-soft); line-height:1.8; margin-top:6px;}
+  .legend-mini span.sw{display:inline-block; width:18px; height:0; border-top-width:2px; border-top-style:solid; margin-right:6px; vertical-align:middle;}
+
+  /* ---- right: viewer ---- */
+  .viewer{display:flex; flex-direction:column;}
+  .toolbar{
+    display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--border);
+    background:var(--panel); flex-wrap:wrap;
+  }
+  .toolbar .field{display:flex; align-items:center; gap:6px; font:11px var(--mono); color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em;}
+  .toolbar input[type=range]{width:100px;}
+  .toolbar .val{width:24px; text-align:right; color:var(--ink);}
+
+  .grid-wrap{padding:18px; display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px;}
+  .card{
+    background:#fff; border:1px solid var(--border); cursor:pointer; position:relative;
+    transition:border-color .15s, transform .1s;
+  }
+  .card:hover{border-color:var(--ink-soft);}
+  .card.selected{border-color:var(--ink); border-width:2px; box-shadow:0 2px 0 var(--ink);}
+  .card svg{display:block; width:100%; height:170px;}
+  .card .meta{
+    display:flex; justify-content:space-between; padding:6px 8px; border-top:1px solid var(--border);
+    font:11px var(--mono); color:var(--ink-soft);
+  }
+  .card .meta b{color:var(--ink);}
+
+  .detail{padding:0 18px 24px;}
+  .detail-head{display:flex; justify-content:space-between; align-items:baseline; margin:6px 0 10px;}
+  .detail-head h2{font:600 15px var(--sans); margin:0;}
+  .detail-frame{background:#fff; border:1px solid var(--border);}
+  .detail-frame svg{display:block; width:100%; height:560px;}
+
+  .bubble-label{font:600 10.5px var(--sans); fill:var(--panel); text-anchor:middle; pointer-events:none;}
+  .bubble-area{font:9px var(--mono); fill:var(--panel); text-anchor:middle; opacity:.85; pointer-events:none;}
+
+  footer{padding:10px 18px; font:11px var(--mono); color:var(--ink-faint); border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="tb-field" style="min-width:220px;">
+    <label>Proyecto</label>
+    <input id="fProyecto" value="PROGRAMA 2 NIVELES">
+  </div>
+  <div class="tb-field" style="width:110px;">
+    <label>Fase</label>
+    <input id="fFase" value="01 — Burbujas">
+  </div>
+  <div class="tb-field" style="width:150px;">
+    <label>Elaboró</label>
+    <input id="fElaboro" value="">
+  </div>
+  <div class="tb-spacer"></div>
+  <div class="tb-actions">
+    <button class="ghost" id="btnEjemplo">Cargar ejemplo</button>
+    <button id="btnGenerar">Generar variantes</button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="section-title">Nodos (espacios)<span></span></div>
+    <table id="tblNodos">
+      <thead><tr><th>Espacio</th><th>m²</th><th>Planta</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button class="add-row" data-add="node">+ agregar espacio</button>
+
+    <div class="section-title">Relaciones (matrices)</div>
+    <table id="tblEdges">
+      <thead><tr><th>A</th><th>B</th><th>Motivo</th><th>Física</th><th>Importancia</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button class="add-row" data-add="edge">+ agregar relación</button>
+
+    <div class="section-title">Leyenda de motivos</div>
+    <textarea id="fMotivos" rows="4" placeholder="1. Acceso directo requerido&#10;2. Comparte instalación hidrosanitaria&#10;3. Ruido/vibración indeseable..."
+      style="width:100%; font:11px var(--mono); border:1px solid var(--border); padding:6px; resize:vertical; background:#fff;"></textarea>
+
+    <div class="section-title">Simbología aplicada</div>
+    <div class="legend-mini" id="legendMini"></div>
+
+    <div class="section-title">Estudios (GitHub)<span></span></div>
+    <div style="display:flex; flex-direction:column; gap:5px;">
+      <input id="ghOwner" placeholder="usuario u organización">
+      <input id="ghRepo" placeholder="repositorio">
+      <input id="ghToken" type="password" placeholder="token (fine-grained, solo este repo)">
+      <div style="display:flex; gap:6px;">
+        <button class="ghost" id="btnGhSave" style="flex:1;">Guardar estudio</button>
+        <button class="ghost" id="btnGhRefresh" style="flex:1;">Ver estudios</button>
+      </div>
+      <select id="ghList" size="4" style="font:11px var(--mono); border:1px solid var(--border); background:#fff;"></select>
+      <button class="ghost" id="btnGhLoad">Cargar seleccionado</button>
+      <div id="ghStatus" style="font:10px var(--mono); color:var(--ink-faint); min-height:14px;"></div>
+    </div>
+  </aside>
+
+  <div class="viewer">
+    <div class="toolbar">
+      <div class="field">N.º variantes <input type="range" id="rNumConfigs" min="2" max="8" value="4"><span class="val" id="vNumConfigs">4</span></div>
+      <div class="field">Repulsión general <input type="range" id="rCharge" min="40" max="260" value="130"><span class="val" id="vCharge">130</span></div>
+      <div class="tb-spacer"></div>
+      <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
+      <button class="ghost" id="btnExportSVG">Exportar SVG</button>
+    </div>
+
+    <div class="grid-wrap" id="grid"></div>
+
+    <div class="detail">
+      <div class="detail-head">
+        <h2>Variante seleccionada</h2>
+        <span id="scoreLabel" style="font:11px var(--mono); color:var(--ink-soft);"></span>
+      </div>
+      <div class="detail-frame"><svg id="mainSvg" viewBox="0 0 720 560"></svg></div>
+    </div>
+  </div>
+</main>
+
+<footer>matrices → grafo de relaciones → simulación force-directed (d3-force) → N configuraciones filtradas por cumplimiento de adyacencias → export JSON para masa 3D en Rhino/Grasshopper</footer>
+
+<script>
+/* =========================================================================
+   1) SIMBOLOGÍA — tabla única de traducción. Ajusten estos valores según
+      como definan la simbología real del estudio; todo lo demás del motor
+      de layout depende solo de estos tres diccionarios.
+   ========================================================================= */
+const FISICA = {
+  'contencion-cerrada': {label:'Contención cerrada', distance:14},
+  'contencion-abierta': {label:'Contención abierta', distance:34},
+  'contiguo-cerrada':   {label:'Contiguo cerrada',   distance:58},
+  'contiguo-abierta':   {label:'Contiguo abierta',   distance:84},
+  'neutro':             {label:'Neutro',             distance:150},
+  'separacion-barrera': {label:'Separación por barrera especial', distance:230},
+  'separacion-locacion':{label:'Separación por locación',         distance:360},
+  'por-decidir':        {label:'Por decidir',        distance:150},
+};
+const IMPORTANCIA = {
+  'mandatoria':  {label:'Mandatoria',  strength:1.0,  width:3.2, dash:null,     color:'var(--ink)'},
+  'deseable':    {label:'Deseable',    strength:0.55, width:1.8, dash:null,     color:'var(--ink-soft)'},
+  'neutral':     {label:'Neutral',     strength:0.2,  width:1,   dash:'3 4',    color:'var(--ink-faint)'},
+  'negativa':    {label:'Negativa/Separatoria', strength:0, width:1.4, dash:'2 5', color:'var(--negativa)'},
+  'por-decidir': {label:'Por decidir', strength:0.1,  width:1,   dash:'1 5',    color:'var(--ink-faint)'},
+};
+const PLANTA_COLOR = { baja: 'var(--baja)', alta: 'var(--alta)' };
+
+/* =========================================================================
+   2) DATOS — estructura mínima. Reemplacen cargarEjemplo() por su propio
+      parser del export de Google Sheets cuando definan el formato final
+      (misma forma de objeto: nodes[] y edges[]).
+   ========================================================================= */
+let nodes = [];
+let edges = [];
+
+function ejemplo(){
+  nodes = [
+    {id:'Cochera', area:28, planta:'baja'},
+    {id:'Vestíbulo', area:3.5, planta:'baja'},
+    {id:'Medio baño', area:2.5, planta:'baja'},
+    {id:'Sala', area:14, planta:'baja'},
+    {id:'Comedor', area:12, planta:'baja'},
+    {id:'Cocina', area:10, planta:'baja'},
+    {id:'Lavado', area:4, planta:'baja'},
+    {id:'Escalera', area:3, planta:'baja'},
+    {id:'Patio', area:35, planta:'baja'},
+    {id:'Hall alto', area:7, planta:'alta'},
+    {id:'Oficina', area:9, planta:'alta'},
+    {id:'Rec. secundaria', area:12, planta:'alta'},
+    {id:'Baño completo', area:4.5, planta:'alta'},
+    {id:'Rec. principal', area:15, planta:'alta'},
+    {id:'Vestidor', area:6, planta:'alta'},
+    {id:'Baño principal', area:8.5, planta:'alta'},
+  ];
+  edges = [
+    ['Cochera','Vestíbulo','1 — acceso directo desde el auto','contiguo-abierta','mandatoria'],
+    ['Vestíbulo','Sala','1 — recorrido de acceso','contiguo-abierta','mandatoria'],
+    ['Vestíbulo','Medio baño','4 — conveniencia para visitas','contiguo-cerrada','deseable'],
+    ['Sala','Comedor','5 — integración open-plan','contencion-abierta','mandatoria'],
+    ['Comedor','Cocina','5 — integración open-plan','contiguo-abierta','mandatoria'],
+    ['Cocina','Lavado','2 — instalación hidrosanitaria compartida','contiguo-cerrada','deseable'],
+    ['Sala','Patio','5 — integración open-plan','contencion-abierta','deseable'],
+    ['Comedor','Patio','5 — integración open-plan','contiguo-abierta','deseable'],
+    ['Vestíbulo','Escalera','1 — recorrido de acceso','contiguo-abierta','deseable'],
+    ['Escalera','Hall alto','1 — recorrido vertical','contencion-abierta','mandatoria'],
+    ['Hall alto','Oficina','4 — conveniencia','contiguo-abierta','deseable'],
+    ['Hall alto','Rec. secundaria','4 — conveniencia','contiguo-abierta','deseable'],
+    ['Hall alto','Rec. principal','4 — conveniencia','contiguo-abierta','deseable'],
+    ['Rec. secundaria','Baño completo','2 — instalación hidrosanitaria compartida','contiguo-cerrada','mandatoria'],
+    ['Oficina','Baño completo','2 — instalación hidrosanitaria compartida','contiguo-cerrada','deseable'],
+    ['Rec. principal','Vestidor','1 — recorrido privado','contencion-cerrada','mandatoria'],
+    ['Vestidor','Baño principal','2 — instalación hidrosanitaria compartida','contiguo-cerrada','mandatoria'],
+    ['Oficina','Rec. principal','3 — aislamiento acústico durante jornadas de trabajo','separacion-barrera','negativa'],
+    ['Cochera','Rec. principal','3 — ruido/vibración indeseable','separacion-locacion','negativa'],
+  ].map(([source,target,motivo,fisica,importancia])=>({source,target,motivo,fisica,importancia}));
+  document.getElementById('fMotivos').value =
+    '1. Continuidad de recorrido / acceso\n2. Instalación hidrosanitaria compartida\n3. Aislamiento acústico / ruido indeseable\n4. Conveniencia funcional\n5. Integración visual open-plan';
+  renderTables();
+  autoGenerate();
+}
+
+/* =========================================================================
+   3) MOTOR DE LAYOUT — d3-force con parámetros derivados de la simbología
+   ========================================================================= */
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function radiusFor(area, kScale){ return Math.max(16, Math.sqrt(area) * kScale); }
+
+function buildSimulation(seedIndex, chargeStrength, W, H){
+  const rnd = mulberry32(1000 + seedIndex * 97);
+  const simNodes = nodes.map(n => ({...n,
+    x: W/2 + (rnd()-0.5)*W*0.7,
+    y: H/2 + (rnd()-0.5)*H*0.7
+  }));
+  // aristas "positivas" van a forceLink; las de separación se manejan aparte
+  const linkEdges = edges.filter(e => IMPORTANCIA[e.importancia].strength > 0)
+    .map(e => ({...e}));
+  const sepEdges = edges.filter(e => e.importancia === 'negativa' || FISICA[e.fisica].distance >= FISICA['separacion-barrera'].distance);
+
+  const kScale = 3.6;
+  const idIndex = new Map(simNodes.map(n=>[n.id,n]));
+
+  const sim = d3.forceSimulation(simNodes)
+    .randomSource(rnd)
+    .force('link', d3.forceLink(linkEdges).id(d=>d.id)
+      .distance(d => FISICA[d.fisica].distance)
+      .strength(d => IMPORTANCIA[d.importancia].strength))
+    .force('charge', d3.forceManyBody().strength(-chargeStrength))
+    .force('collide', d3.forceCollide(d => radiusFor(d.area,kScale) + 5))
+    .force('x', d3.forceX(d => d.planta==='baja' ? W*0.32 : W*0.68).strength(0.045))
+    .force('y', d3.forceY(H/2).strength(0.02))
+    .force('separacion', () => {
+      sepEdges.forEach(e=>{
+        const a = idIndex.get(e.source.id||e.source), b = idIndex.get(e.target.id||e.target);
+        if(!a||!b) return;
+        const min = FISICA[e.fisica].distance;
+        let dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)||0.001;
+        if(d < min){
+          const push=(min-d)/d*0.5;
+          a.x -= dx*push; a.y -= dy*push;
+          b.x += dx*push; b.y += dy*push;
+        }
+      });
+    })
+    .stop();
+
+  for(let i=0;i<320;i++) sim.tick();
+  return {nodes: simNodes, edges: linkEdges.concat(sepEdges), kScale};
+}
+
+function scoreLayout(result){
+  const idx = new Map(result.nodes.map(n=>[n.id,n]));
+  let ok=0, total=0;
+  edges.forEach(e=>{
+    const a=idx.get(e.source.id||e.source), b=idx.get(e.target.id||e.target);
+    if(!a||!b) return;
+    const d = Math.hypot(a.x-b.x, a.y-b.y);
+    const target = FISICA[e.fisica].distance;
+    if(e.importancia==='mandatoria'||e.importancia==='deseable'){
+      total++; if(d <= target*1.4) ok++;
+    } else if(e.importancia==='negativa'){
+      total++; if(d >= target*0.75) ok++;
+    }
+  });
+  return total? ok/total : 1;
+}
+
+function signatureOf(result){
+  const idx = new Map(result.nodes.map(n=>[n.id,n]));
+  return result.nodes.map(n=>{
+    let best=null, bd=Infinity;
+    result.nodes.forEach(m=>{ if(m.id===n.id) return; const d=Math.hypot(n.x-m.x,n.y-m.y); if(d<bd){bd=d;best=m.id;} });
+    return n.id+'>'+best;
+  }).sort().join('|');
+}
+
+function generateConfigs(count, chargeStrength){
+  const W=720,H=560;
+  const candidates=[];
+  const tries = Math.max(count*4, 14);
+  for(let i=0;i<tries;i++){
+    const r = buildSimulation(i, chargeStrength, W, H);
+    candidates.push({result:r, score:scoreLayout(r), sig:signatureOf(r), seed:i});
+  }
+  candidates.sort((a,b)=>b.score-a.score);
+  const chosen=[]; const seen=new Set();
+  for(const c of candidates){
+    if(seen.has(c.sig)) continue;
+    seen.add(c.sig); chosen.push(c);
+    if(chosen.length>=count) break;
+  }
+  return chosen;
+}
+
+/* =========================================================================
+   4) RENDER
+   ========================================================================= */
+let currentConfigs = [];
+let selectedIndex = 0;
+
+function svgFor(result, W=720, H=560, interactive=false){
+  const kScale = result.kScale;
+  let s = `<g>`;
+  result.edges.forEach(e=>{
+    const style = IMPORTANCIA[e.importancia];
+    const a = typeof e.source==='object'? e.source : result.nodes.find(n=>n.id===e.source);
+    const b = typeof e.target==='object'? e.target : result.nodes.find(n=>n.id===e.target);
+    if(!a||!b) return;
+    s += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"
+      stroke="${style.color.replace('var(--ink)','#17233B').replace('var(--ink-soft)','#4A5771').replace('var(--ink-faint)','#8A93A3')}"
+      stroke-width="${style.width}" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.85:0.6}"><title>${(a.id||a)} — ${(b.id||b)}${e.motivo?' · '+e.motivo:''}</title></line>`;
+  });
+  result.nodes.forEach(n=>{
+    const r = radiusFor(n.area, kScale);
+    const fill = n.planta==='baja' ? '#B9862E' : '#3E6E8E';
+    s += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${fill}" stroke="#17233B" stroke-width="1"/>`;
+    const words = n.id.split(' ');
+    const lines = words.length>1 && r<40 ? [words.slice(0,Math.ceil(words.length/2)).join(' '), words.slice(Math.ceil(words.length/2)).join(' ')] : [n.id];
+    lines.forEach((line,i)=>{
+      s += `<text class="bubble-label" x="${n.x}" y="${n.y - 4 + i*11 - (lines.length-1)*5.5}" font-size="${Math.min(11, r/2.6)}">${line}</text>`;
+    });
+    s += `<text class="bubble-area" x="${n.x}" y="${n.y + 12 + (lines.length-1)*5}">${n.area} m²</text>`;
+  });
+  s += `</g>`;
+  return s;
+}
+
+function renderGrid(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML='';
+  currentConfigs.forEach((c,i)=>{
+    const card = document.createElement('div');
+    card.className = 'card' + (i===selectedIndex?' selected':'');
+    card.innerHTML = `<svg viewBox="0 0 720 560">${svgFor(c.result)}</svg>
+      <div class="meta"><span>Variante ${i+1}</span><b>${Math.round(c.score*100)}% cumplimiento</b></div>`;
+    card.onclick = ()=>{ selectedIndex=i; renderGrid(); renderDetail(); };
+    grid.appendChild(card);
+  });
+}
+
+function renderDetail(){
+  const c = currentConfigs[selectedIndex];
+  if(!c) return;
+  document.getElementById('mainSvg').innerHTML = svgFor(c.result);
+  document.getElementById('scoreLabel').textContent = `Variante ${selectedIndex+1} · ${Math.round(c.score*100)}% de adyacencias satisfechas`;
+}
+
+function renderLegend(){
+  const el = document.getElementById('legendMini');
+  el.innerHTML = Object.entries(IMPORTANCIA).map(([k,v])=>
+    `<div><span class="sw" style="border-top-color:${v.color.replace('var(--ink)','#17233B').replace('var(--ink-soft)','#4A5771').replace('var(--ink-faint)','#8A93A3').replace('var(--negativa)','#B5432E')}; border-top-style:${v.dash?'dashed':'solid'};"></span>${v.label}</div>`
+  ).join('') + `<div style="margin-top:6px;"><span class="sw" style="border-top-color:#B9862E;border-top-width:8px;"></span>Planta baja</div>
+  <div><span class="sw" style="border-top-color:#3E6E8E;border-top-width:8px;"></span>Planta alta</div>`;
+}
+
+/* =========================================================================
+   5) TABLAS EDITABLES
+   ========================================================================= */
+function renderTables(){
+  const tb = document.querySelector('#tblNodos tbody');
+  tb.innerHTML='';
+  nodes.forEach((n,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input value="${n.id}" data-i="${i}" data-f="id"></td>
+      <td class="num"><input type="number" step="0.5" value="${n.area}" data-i="${i}" data-f="area"></td>
+      <td><select data-i="${i}" data-f="planta">
+        <option value="baja" ${n.planta==='baja'?'selected':''}>Baja</option>
+        <option value="alta" ${n.planta==='alta'?'selected':''}>Alta</option>
+      </select></td>
+      <td class="row-del" data-del="${i}">✕</td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
+    const i=+e.target.dataset.i, f=e.target.dataset.f;
+    nodes[i][f] = f==='area' ? parseFloat(e.target.value)||0 : e.target.value;
+  });
+  tb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
+    nodes.splice(+e.target.dataset.del,1); renderTables();
+  });
+
+  const teb = document.querySelector('#tblEdges tbody');
+  teb.innerHTML='';
+  const opts = nodes.map(n=>n.id);
+  edges.forEach((e,i)=>{
+    const tr = document.createElement('tr');
+    const nodeOpts = id => opts.map(o=>`<option ${o===id?'selected':''}>${o}</option>`).join('');
+    tr.innerHTML = `<td><select data-i="${i}" data-f="source">${nodeOpts(e.source.id||e.source)}</select></td>
+      <td><select data-i="${i}" data-f="target">${nodeOpts(e.target.id||e.target)}</select></td>
+      <td><input value="${e.motivo||''}" title="${e.motivo||''}" data-i="${i}" data-f="motivo" style="width:70px;"></td>
+      <td><select data-i="${i}" data-f="fisica">${Object.keys(FISICA).map(k=>`<option value="${k}" ${e.fisica===k?'selected':''}>${FISICA[k].label}</option>`).join('')}</select></td>
+      <td><select data-i="${i}" data-f="importancia">${Object.keys(IMPORTANCIA).map(k=>`<option value="${k}" ${e.importancia===k?'selected':''}>${IMPORTANCIA[k].label}</option>`).join('')}</select></td>
+      <td class="row-del" data-del="${i}">✕</td>`;
+    teb.appendChild(tr);
+  });
+  teb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
+    const i=+e.target.dataset.i, f=e.target.dataset.f;
+    edges[i][f] = e.target.value;
+  });
+  teb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
+    edges.splice(+e.target.dataset.del,1); renderTables();
+  });
+}
+
+/* =========================================================================
+   6) EXPORT — el JSON queda listo para leerse desde un componente Python
+      en Grasshopper en la siguiente etapa del workflow.
+   ========================================================================= */
+function currentPayload(){
+  const c = currentConfigs[selectedIndex];
+  return {
+    proyecto: document.getElementById('fProyecto').value,
+    fase: document.getElementById('fFase').value,
+    elaboro: document.getElementById('fElaboro').value,
+    motivos: document.getElementById('fMotivos').value,
+    nodes,
+    edges: edges.map(e=>({source:e.source.id||e.source, target:e.target.id||e.target, motivo:e.motivo, fisica:e.fisica, importancia:e.importancia})),
+    variante: c ? {
+      index: selectedIndex+1,
+      cumplimiento: c.score,
+      nodes: c.result.nodes.map(n=>({id:n.id, area:n.area, planta:n.planta, x:Math.round(n.x), y:Math.round(n.y)}))
+    } : null,
+    savedAt: new Date().toISOString()
+  };
+}
+function exportJSON(){
+  const payload = currentPayload();
+  if(!payload.variante) return;
+  download(`${payload.proyecto.replace(/\s+/g,'_')}_burbujas_v${selectedIndex+1}.json`, JSON.stringify(payload,null,2), 'application/json');
+}
+function exportSVG(){
+  const svg = document.getElementById('mainSvg');
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  download(`burbujas_v${selectedIndex+1}.svg`, clone.outerHTML, 'image/svg+xml');
+}
+function download(filename, text, type){
+  const blob = new Blob([text], {type});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+}
+
+/* =========================================================================
+   7) CONTROLES
+   ========================================================================= */
+function autoGenerate(){
+  const count = +document.getElementById('rNumConfigs').value;
+  const charge = +document.getElementById('rCharge').value;
+  currentConfigs = generateConfigs(count, charge);
+  selectedIndex = 0;
+  renderGrid();
+  renderDetail();
+}
+
+document.getElementById('btnEjemplo').onclick = ejemplo;
+document.getElementById('btnGenerar').onclick = ()=>{ renderTables.length; autoGenerate(); };
+document.getElementById('btnExportJSON').onclick = exportJSON;
+document.getElementById('btnExportSVG').onclick = exportSVG;
+document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
+  if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:'baja'});
+  else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});
+  renderTables();
+});
+['rNumConfigs','rCharge'].forEach(id=>{
+  const el = document.getElementById(id);
+  const val = document.getElementById('v'+id.slice(1));
+  el.oninput = ()=>{ val.textContent = el.value; };
+});
+
+/* =========================================================================
+   8) ESTUDIOS EN GITHUB — usa la Contents API de GitHub directo desde el
+      navegador (sin backend). Cada estudio vive en:
+        estudios/<slug-del-proyecto>/matrices.json
+      El token se guarda solo en localStorage de este navegador — nunca
+      viaja a ningún otro lado más que a api.github.com. Recomendado:
+      un fine-grained personal access token con permiso de Contents
+      (read & write) limitado a un solo repositorio.
+   ========================================================================= */
+function slugify(s){ return s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+function ghConfig(){
+  return {
+    owner: document.getElementById('ghOwner').value.trim(),
+    repo: document.getElementById('ghRepo').value.trim(),
+    token: document.getElementById('ghToken').value.trim(),
+    branch: 'main'
+  };
+}
+function ghHeaders(cfg){
+  return { 'Authorization':'token '+cfg.token, 'Accept':'application/vnd.github+json' };
+}
+function ghStatus(msg, isError){
+  const el = document.getElementById('ghStatus');
+  el.textContent = msg;
+  el.style.color = isError ? '#B5432E' : '#8A93A3';
+}
+function loadGhConfigFromStorage(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('ghConfig')||'{}');
+    if(saved.owner) document.getElementById('ghOwner').value = saved.owner;
+    if(saved.repo) document.getElementById('ghRepo').value = saved.repo;
+    if(saved.token) document.getElementById('ghToken').value = saved.token;
+  }catch(e){}
+}
+function saveGhConfigToStorage(){
+  const cfg = ghConfig();
+  localStorage.setItem('ghConfig', JSON.stringify({owner:cfg.owner, repo:cfg.repo, token:cfg.token}));
+}
+
+async function ghSaveEstudio(){
+  const cfg = ghConfig();
+  if(!cfg.owner || !cfg.repo || !cfg.token){ ghStatus('faltan owner/repo/token', true); return; }
+  saveGhConfigToStorage();
+  const slug = slugify(document.getElementById('fProyecto').value || 'estudio');
+  const path = `estudios/${slug}/matrices.json`;
+  const payload = currentPayload();
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+  ghStatus('guardando…');
+  try{
+    let sha;
+    const getRes = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}`, {headers: ghHeaders(cfg)});
+    if(getRes.ok){ sha = (await getRes.json()).sha; }
+    const putRes = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}`, {
+      method:'PUT', headers: ghHeaders(cfg),
+      body: JSON.stringify({ message:`Guardar estudio: ${slug}`, content, branch: cfg.branch, sha })
+    });
+    if(!putRes.ok){ const err = await putRes.json(); throw new Error(err.message||putRes.status); }
+    ghStatus(`guardado: ${path}`);
+    ghRefreshList();
+  }catch(err){
+    ghStatus('error al guardar: '+err.message, true);
+  }
+}
+
+async function ghRefreshList(){
+  const cfg = ghConfig();
+  if(!cfg.owner || !cfg.repo || !cfg.token){ ghStatus('faltan owner/repo/token', true); return; }
+  saveGhConfigToStorage();
+  ghStatus('consultando…');
+  try{
+    const res = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/estudios`, {headers: ghHeaders(cfg)});
+    const sel = document.getElementById('ghList');
+    sel.innerHTML = '';
+    if(res.status===404){ ghStatus('sin estudios guardados aún'); return; }
+    if(!res.ok){ const err = await res.json(); throw new Error(err.message||res.status); }
+    const items = (await res.json()).filter(f=>f.type==='dir');
+    items.forEach(f=>{
+      const opt = document.createElement('option');
+      opt.value = f.name; opt.textContent = f.name;
+      sel.appendChild(opt);
+    });
+    ghStatus(`${items.length} estudio(s)`);
+  }catch(err){
+    ghStatus('error al listar: '+err.message, true);
+  }
+}
+
+async function ghLoadEstudio(){
+  const cfg = ghConfig();
+  const sel = document.getElementById('ghList');
+  const slug = sel.value;
+  if(!slug){ ghStatus('elige un estudio de la lista', true); return; }
+  ghStatus('cargando…');
+  try{
+    const path = `estudios/${slug}/matrices.json`;
+    const res = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}`, {headers: ghHeaders(cfg)});
+    if(!res.ok){ const err = await res.json(); throw new Error(err.message||res.status); }
+    const file = await res.json();
+    const payload = JSON.parse(decodeURIComponent(escape(atob(file.content))));
+    document.getElementById('fProyecto').value = payload.proyecto || '';
+    document.getElementById('fFase').value = payload.fase || '';
+    document.getElementById('fElaboro').value = payload.elaboro || '';
+    document.getElementById('fMotivos').value = payload.motivos || '';
+    nodes = payload.nodes || [];
+    edges = payload.edges || [];
+    renderTables();
+    autoGenerate();
+    ghStatus(`cargado: ${slug}`);
+  }catch(err){
+    ghStatus('error al cargar: '+err.message, true);
+  }
+}
+
+document.getElementById('btnGhSave').onclick = ghSaveEstudio;
+document.getElementById('btnGhRefresh').onclick = ghRefreshList;
+document.getElementById('btnGhLoad').onclick = ghLoadEstudio;
+loadGhConfigFromStorage();
+
+renderLegend();
+ejemplo();
+</script>
+</body>
+</html>

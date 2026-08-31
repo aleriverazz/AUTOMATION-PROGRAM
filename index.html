@@ -134,9 +134,11 @@
   @media (max-width:1100px){ .matrix-grid{grid-template-columns:1fr;} }
   .matrix-panel{background:#fff; border:1px solid var(--border); padding:16px; overflow:hidden;}
   .matrix-panel.full{grid-column:1 / -1;}
-  .matrix-head{margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border);}
+  .matrix-head{display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border);}
   .matrix-head .t1{font:700 15px var(--sans); color:var(--ink); display:block;}
   .matrix-head .t2{font:italic 12px var(--sans); color:var(--ink-soft); display:block;}
+  .mini-btn{font:600 9px/1 var(--mono); text-transform:uppercase; letter-spacing:.05em; padding:5px 9px; background:transparent; border:1px solid var(--border); color:var(--ink-soft); flex:none;}
+  .mini-btn:hover{border-color:var(--ink-soft); color:var(--ink);}
   .matrix-body{display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start;}
   .matrix-svg-wrap{overflow-x:auto; max-width:100%;}
   .matrix-legend-list{font:11px var(--mono); color:var(--ink-soft); min-width:190px;}
@@ -149,7 +151,37 @@
   .row-index{font-size:10px; font-family:'JetBrains Mono',monospace; font-style:italic; fill:#8A93A3;}
   .empty-note{font:11px var(--mono); color:var(--ink-faint); padding:6px 0;}
 
+  .matrix-toolbar{display:flex; align-items:center; padding:12px 18px; border-bottom:1px solid var(--border); background:var(--panel);}
+
   footer{padding:10px 18px; font:11px var(--mono); color:var(--ink-faint); border-top:1px solid var(--border);}
+
+  /* ---- exportar a PDF: lámina oculta que solo se muestra al imprimir ---- */
+  #printArea{display:none;}
+  .print-page{width:100%; padding:6mm 0; page-break-after:always;}
+  .print-page:last-child{page-break-after:auto;}
+  .print-head{margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid #C7CEDA;}
+  .print-head .t1{font:700 20px 'Public Sans',sans-serif; color:#17233B; display:block;}
+  .print-head .t2{font:italic 14px 'Public Sans',sans-serif; color:#4A5771; display:block;}
+  .print-head .t3{font:11px 'JetBrains Mono',monospace; color:#8A93A3; margin-top:4px; display:block;}
+  .print-body{display:flex; gap:32px; align-items:flex-start;}
+  .print-body-split{display:flex; gap:26px; align-items:flex-start;}
+  .print-diagram-col{flex:1; min-width:0;}
+  .print-side-col{width:300px; flex:none; display:flex; flex-direction:column; gap:16px;}
+  .legend-block{display:flex; flex-direction:column; gap:14px;}
+  .print-foot{display:flex; gap:18px; align-items:center; margin-top:14px; padding-top:10px; border-top:1px solid #C7CEDA;}
+  .print-foot-text{font:9.5px 'JetBrains Mono',monospace; color:#4A5771; line-height:1.55;}
+  .areas-table{width:340px; border-collapse:collapse; font:11px 'Public Sans',sans-serif;}
+  .areas-table th{font:700 10px 'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:5px 6px; border-bottom:1.5px solid #17233B;}
+  .areas-table td{padding:4px 6px; border-bottom:1px solid #E3E6EC;}
+  .areas-table td.idx{font:italic 10px 'JetBrains Mono',monospace; color:#8A93A3; width:26px;}
+  .areas-table td.num{text-align:right; font-family:'JetBrains Mono',monospace;}
+  .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B;}
+  .areas-table tr.total td{font:700 13px 'Public Sans',sans-serif; border-top:2px solid #17233B; padding-top:8px;}
+  @media print{
+    body > *:not(#printArea){display:none !important;}
+    #printArea{display:block !important;}
+    @page{ size:landscape; margin:14mm; }
+  }
 </style>
 </head>
 <body>
@@ -225,6 +257,7 @@
         <div class="tb-spacer"></div>
         <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
         <button class="ghost" id="btnExportSVG">Exportar SVG</button>
+        <button class="ghost" id="btnExportBubblePDF">Exportar PDF</button>
       </div>
 
       <div class="grid-wrap" id="grid"></div>
@@ -239,10 +272,17 @@
     </div>
 
     <div class="view-pane" id="paneMatrices">
+      <div class="matrix-toolbar">
+        <div class="tb-spacer"></div>
+        <button class="ghost" id="btnExportAreasPDF">Exportar Tabla de Áreas (PDF)</button>
+        <button class="ghost" id="btnExportMatricesPDF">Exportar PDF (3 láminas)</button>
+      </div>
       <div class="matrix-grid" id="matrixGrid"></div>
     </div>
   </div>
 </main>
+
+<div id="printArea"></div>
 
 <footer>matrices → grafo de relaciones → simulación force-directed (d3-force) → N configuraciones filtradas por cumplimiento de adyacencias → export JSON para masa 3D en Rhino/Grasshopper</footer>
 
@@ -270,6 +310,9 @@ const IMPORTANCIA = {
   'por-decidir': {label:'Por decidir', strength:0.1,  width:1,   dash:'1 5',    color:'var(--ink-faint)'},
 };
 const PLANTA_COLOR = { baja: 'var(--baja)', alta: 'var(--alta)' };
+
+/* escalas arquitectónicas estándar disponibles para el pie de plano */
+const STANDARD_SCALES = [50,75,100,125,150,200,250,300,400,500,750,1000];
 
 /* colores planos para la vista de Matrices (rombos rellenos: no pueden usar
    var(--x) porque el navegador no las resuelve dentro de un string SVG
@@ -453,17 +496,27 @@ function svgFor(result, W=720, H=560, interactive=false){
     s += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"
       stroke="${style.color.replace('var(--ink)','#17233B').replace('var(--ink-soft)','#4A5771').replace('var(--ink-faint)','#8A93A3')}"
       stroke-width="${style.width}" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.85:0.6}"><title>${(a.id||a)} — ${(b.id||b)}${e.motivo?' · '+e.motivo:''}</title></line>`;
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    s += `<circle cx="${mx}" cy="${my}" r="7" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, 5.5)}`;
   });
-  result.nodes.forEach(n=>{
+  result.nodes.forEach((n,ni)=>{
+    const idx = String(ni+1).padStart(2,'0');
     const r = radiusFor(n.area, kScale);
     const fill = n.planta==='baja' ? '#B9862E' : '#3E6E8E';
+    s += `<circle cx="${n.x}" cy="${n.y}" r="${r+3}" fill="none" stroke="#17233B" stroke-width="1"/>`;
     s += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${fill}" stroke="#17233B" stroke-width="1"/>`;
-    const words = n.id.split(' ');
-    const lines = words.length>1 && r<40 ? [words.slice(0,Math.ceil(words.length/2)).join(' '), words.slice(Math.ceil(words.length/2)).join(' ')] : [n.id];
-    lines.forEach((line,i)=>{
-      s += `<text class="bubble-label" x="${n.x}" y="${n.y - 4 + i*11 - (lines.length-1)*5.5}" font-size="${Math.min(11, r/2.6)}">${line}</text>`;
-    });
-    s += `<text class="bubble-area" x="${n.x}" y="${n.y + 12 + (lines.length-1)*5}">${n.area} m²</text>`;
+    if(r >= 26){
+      const words = n.id.split(' ');
+      const lines = words.length>1 && r<40 ? [words.slice(0,Math.ceil(words.length/2)).join(' '), words.slice(Math.ceil(words.length/2)).join(' ')] : [n.id];
+      s += `<text class="bubble-label" x="${n.x}" y="${n.y - 10 - (lines.length-1)*5.5}" font-size="8" opacity=".8">${idx}</text>`;
+      lines.forEach((line,i)=>{
+        s += `<text class="bubble-label" x="${n.x}" y="${n.y - 4 + i*11 - (lines.length-1)*5.5}" font-size="${Math.min(11, r/2.6)}">${line}</text>`;
+      });
+      s += `<text class="bubble-area" x="${n.x}" y="${n.y + 12 + (lines.length-1)*5}">${n.area} m²</text>`;
+    } else {
+      s += `<text class="bubble-label" x="${n.x}" y="${n.y-1}" font-size="${Math.min(10,r/1.6)}">${idx}</text>`;
+      s += `<text class="bubble-area" x="${n.x}" y="${n.y + Math.min(9,r/1.8)}" font-size="7">${n.area}</text>`;
+    }
   });
   s += `</g>`;
   return s;
@@ -648,6 +701,12 @@ function svgMatrixMotivos(motivoMap){
   return s;
 }
 
+function buildMotivoListHtml(motivoMap){
+  const entries = [...motivoMap.entries()].sort((a,b)=>a[1]-b[1]);
+  if(!entries.length) return '<span style="opacity:.6;">Sin motivos capturados aún.</span>';
+  return '<ol class="motivo-list">' + entries.map(([text])=>`<li>${text}</li>`).join('') + '</ol>';
+}
+
 function legendSwatchImportancia(){
   return Object.entries(IMPORTANCIA).map(([k,v])=>{
     const fill = MATRIZ_COLOR[k];
@@ -668,33 +727,53 @@ function renderMatrices(){
     return;
   }
   const motivoMap = syncMotivoLegend();
-  const motivoListHtml = '<ol class="motivo-list">' +
-    [...motivoMap.entries()].sort((a,b)=>a[1]-b[1]).map(([text])=>`<li>${text}</li>`).join('') +
-    '</ol>';
+  const motivoListHtml = buildMotivoListHtml(motivoMap);
 
   grid.innerHTML = `
     <div class="matrix-panel">
-      <div class="matrix-head"><span class="t1">${proyecto}</span><span class="t2">Importancia Relativa</span></div>
+      <div class="matrix-head">
+        <div><span class="t1">${proyecto}</span><span class="t2">Importancia Relativa</span></div>
+        <button class="mini-btn" data-export-svg="importancia">⤓ SVG</button>
+      </div>
       <div class="matrix-body">
         <div class="matrix-svg-wrap">${svgMatrixImportancia()}</div>
         <div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchImportancia()}</div>
       </div>
     </div>
     <div class="matrix-panel">
-      <div class="matrix-head"><span class="t1">${proyecto}</span><span class="t2">Relación Física</span></div>
+      <div class="matrix-head">
+        <div><span class="t1">${proyecto}</span><span class="t2">Relación Física</span></div>
+        <button class="mini-btn" data-export-svg="fisica">⤓ SVG</button>
+      </div>
       <div class="matrix-body">
         <div class="matrix-svg-wrap">${svgMatrixFisica()}</div>
         <div class="matrix-legend-list"><div class="lg-title">Relación Física</div>${legendSwatchFisica()}</div>
       </div>
     </div>
     <div class="matrix-panel full">
-      <div class="matrix-head"><span class="t1">${proyecto}</span><span class="t2">Deseos y Motivos</span></div>
+      <div class="matrix-head">
+        <div><span class="t1">${proyecto}</span><span class="t2">Deseos y Motivos</span></div>
+        <button class="mini-btn" data-export-svg="motivos">⤓ SVG</button>
+      </div>
       <div class="matrix-body">
         <div class="matrix-svg-wrap">${svgMatrixMotivos(motivoMap)}</div>
-        <div class="matrix-legend-list" style="min-width:280px;"><div class="lg-title">Deseos y Motivos</div>${motivoListHtml || '<span style="opacity:.6;">Sin motivos capturados aún.</span>'}</div>
+        <div class="matrix-legend-list" style="min-width:280px;"><div class="lg-title">Deseos y Motivos</div>${motivoListHtml}</div>
       </div>
     </div>
   `;
+
+  grid.querySelectorAll('[data-export-svg]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const type = btn.dataset.exportSvg;
+      const slug = slugify(proyecto);
+      const map = {
+        importancia: {svg: svgMatrixImportancia(), name:'importancia-relativa'},
+        fisica:      {svg: svgMatrixFisica(),      name:'relacion-fisica'},
+        motivos:     {svg: svgMatrixMotivos(motivoMap), name:'deseos-y-motivos'},
+      }[type];
+      exportSvgString(map.svg, `${slug}_matriz-${map.name}.svg`);
+    };
+  });
 }
 
 function refreshMatricesIfVisible(){
@@ -789,6 +868,212 @@ function download(filename, text, type){
   a.href = URL.createObjectURL(blob); a.download = filename; a.click();
 }
 
+/* -- export de las matrices: SVG individual (por panel) y PDF (las 3 juntas,
+      vía el diálogo "Guardar como PDF" de imprimir del navegador — sin
+      librerías externas, y con la misma tipografía/colores que en pantalla) -- */
+function exportSvgString(svgStr, filename){
+  const withNs = svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+  download(filename, withNs, 'image/svg+xml');
+}
+
+function exportMatricesPDF(){
+  if(!nodes.length){ return; }
+  const proyecto = document.getElementById('fProyecto').value || 'PROYECTO';
+  const fase = document.getElementById('fFase').value || '';
+  const motivoMap = syncMotivoLegend();
+
+  const pages = [
+    { sub:'Importancia Relativa', svg: svgMatrixImportancia(),
+      legend: `<div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchImportancia()}</div>` },
+    { sub:'Relación Física', svg: svgMatrixFisica(),
+      legend: `<div class="matrix-legend-list"><div class="lg-title">Relación Física</div>${legendSwatchFisica()}</div>` },
+    { sub:'Deseos y Motivos', svg: svgMatrixMotivos(motivoMap),
+      legend: `<div class="matrix-legend-list" style="min-width:280px;"><div class="lg-title">Deseos y Motivos</div>${buildMotivoListHtml(motivoMap)}</div>` },
+  ];
+
+  document.getElementById('printArea').innerHTML = pages.map(p=>`
+    <div class="print-page">
+      <div class="print-head">
+        <span class="t1">${proyecto}</span>
+        <span class="t2">${p.sub}</span>
+        ${fase ? `<span class="t3">Fase: ${fase}</span>` : ''}
+      </div>
+      <div class="print-body">
+        <div class="matrix-svg-wrap">${p.svg}</div>
+        ${p.legend}
+      </div>
+    </div>
+  `).join('');
+
+  window.print();
+}
+/* -- diagrama de burbujas a escala arquitectónica real: el radio de cada
+      círculo se calcula con la fórmula real de área de un círculo
+      (r = √(área/π)), sin el "piso" de legibilidad que usa la vista en
+      pantalla. Como la posición on-screen ya es proporcional a √área con
+      el mismo factor (radiusFor = √área·kScale), existe un único factor
+      mm-por-unidad que hace que TODO el layout (posiciones y radios) se
+      vuelva físicamente exacto en la escala elegida — las distancias entre
+      espacios siguen siendo esquemáticas (como en cualquier diagrama de
+      burbujas), solo el tamaño de cada círculo queda acotado a escala. -- */
+function trueRadiusUnits(area, kScale){ return Math.sqrt(area) * kScale; }
+
+function buildTrueScaleLayout(result){
+  const kScale = result.kScale;
+  const pts = result.nodes.map(n=>({...n, r: trueRadiusUnits(n.area, kScale)}));
+  const minX = Math.min(...pts.map(p=>p.x-p.r)), maxX = Math.max(...pts.map(p=>p.x+p.r));
+  const minY = Math.min(...pts.map(p=>p.y-p.r)), maxY = Math.max(...pts.map(p=>p.y+p.r));
+  return { pts, kScale, bboxW: Math.max(1,maxX-minX), bboxH: Math.max(1,maxY-minY), minX, minY, edges: result.edges };
+}
+
+function chooseScale(bboxWUnits, bboxHUnits, kScale, targetWmm, targetHmm){
+  const k = 1000/(Math.sqrt(Math.PI)*kScale); // mm por unidad, a escala 1:1
+  const needed = Math.max(bboxWUnits/targetWmm, bboxHUnits/targetHmm) * k;
+  for(const E of STANDARD_SCALES){ if(E >= needed) return E; }
+  return STANDARD_SCALES[STANDARD_SCALES.length-1];
+}
+
+function svgTrueScaleBubbles(scaleE, layout){
+  const mmPerUnit = 1000/(Math.sqrt(Math.PI)*layout.kScale*scaleE);
+  const pad = 10;
+  const W = layout.bboxW*mmPerUnit + pad*2, H = layout.bboxH*mmPerUnit + pad*2;
+  const tx = p => (p.x-layout.minX)*mmPerUnit + pad;
+  const ty = p => (p.y-layout.minY)*mmPerUnit + pad;
+  const byId = id => layout.pts.find(n=>n.id===id);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" xmlns="http://www.w3.org/2000/svg">`;
+  layout.edges.forEach(e=>{
+    const style = IMPORTANCIA[e.importancia];
+    const a = byId(e.source.id||e.source), b = byId(e.target.id||e.target);
+    if(!a||!b) return;
+    const col = style.color.replace('var(--ink)','#17233B').replace('var(--ink-soft)','#4A5771').replace('var(--ink-faint)','#8A93A3');
+    s += `<line x1="${tx(a)}" y1="${ty(a)}" x2="${tx(b)}" y2="${ty(b)}" stroke="${col}" stroke-width="${style.width*0.35}" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.85:0.6}"/>`;
+    const mx=(tx(a)+tx(b))/2, my=(ty(a)+ty(b))/2;
+    s += `<circle cx="${mx}" cy="${my}" r="2.4" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, 1.8)}`;
+  });
+  layout.pts.forEach((p,pi)=>{
+    const idx = String(pi+1).padStart(2,'0');
+    const r = p.r*mmPerUnit, cx=tx(p), cy=ty(p);
+    const fill = p.planta==='baja' ? '#B9862E' : '#3E6E8E';
+    s += `<circle cx="${cx}" cy="${cy}" r="${r+0.8}" fill="none" stroke="#17233B" stroke-width="0.25"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#17233B" stroke-width="0.3"/>`;
+    if(r > 9){
+      s += `<text x="${cx}" y="${cy-r+2.6}" text-anchor="middle" font-size="1.9" font-family="'JetBrains Mono',monospace" fill="#F7F8FA" opacity=".85">${idx}</text>`;
+      s += `<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="${Math.min(3.2,r/3)}" font-family="'Public Sans',sans-serif" font-weight="600" fill="#F7F8FA">${p.id}</text>`;
+      s += `<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="2.4" font-family="'JetBrains Mono',monospace" fill="#F7F8FA" opacity=".9">${p.area} m²</text>`;
+    } else {
+      s += `<text x="${cx}" y="${cy-r-1.8}" text-anchor="middle" font-size="2.6" font-family="'JetBrains Mono',monospace" fill="#17233B">${idx}</text>`;
+    }
+  });
+  s += `</svg>`;
+  return s;
+}
+
+function scaleBarSVG(scaleE){
+  const mmPerMeter = 1000/scaleE;
+  let step=5; if(mmPerMeter*5 > 90) step = Math.max(1, Math.floor(90/(mmPerMeter*5))*1) || 1;
+  const count = 5;
+  const totalMM = step*count*mmPerMeter;
+  let s = `<svg viewBox="0 0 ${totalMM+10} 14" width="${totalMM+10}mm" height="14mm" xmlns="http://www.w3.org/2000/svg">`;
+  for(let i=0;i<count;i++){
+    const x0=5+i*step*mmPerMeter, x1=x0+step*mmPerMeter;
+    s += `<rect x="${x0}" y="4" width="${x1-x0}" height="3" fill="${i%2===0?'#17233B':'#fff'}" stroke="#17233B" stroke-width="0.3"/>`;
+  }
+  s += `<text x="5" y="12" font-size="2.6" font-family="'JetBrains Mono',monospace" fill="#4A5771">0</text>`;
+  s += `<text x="${5+count*step*mmPerMeter}" y="12" font-size="2.6" font-family="'JetBrains Mono',monospace" fill="#4A5771" text-anchor="end">${count*step} m</text>`;
+  s += `</svg>`;
+  return s;
+}
+
+function exportBubblePDF(){
+  const c = currentConfigs[selectedIndex];
+  if(!c) return;
+  const proyecto = document.getElementById('fProyecto').value || 'PROYECTO';
+  const fase = document.getElementById('fFase').value || '';
+  const elaboro = document.getElementById('fElaboro').value || '';
+
+  const layout = buildTrueScaleLayout(c.result);
+  const scaleE = chooseScale(layout.bboxW, layout.bboxH, layout.kScale, 220, 115);
+  const svgMarkup = svgTrueScaleBubbles(scaleE, layout);
+  const totalArea = nodes.reduce((a,n)=>a+n.area,0);
+
+  const infoBits = [
+    fase ? `Fase: ${fase}` : '', elaboro ? `Elaboró: ${elaboro}` : '',
+    `${Math.round(c.score*100)}% de adyacencias satisfechas`
+  ].filter(Boolean).join(' · ');
+
+  document.getElementById('printArea').innerHTML = `
+    <div class="print-page">
+      <div class="print-head">
+        <span class="t1">${proyecto}</span>
+        <span class="t2">Diagrama de burbujas — Variante ${selectedIndex+1}</span>
+        <span class="t3">${infoBits}</span>
+      </div>
+      <div class="print-body-split">
+        <div class="print-diagram-col">
+          <div class="matrix-svg-wrap">${svgMarkup}</div>
+          <div class="print-foot">
+            ${scaleBarSVG(scaleE)}
+            <div class="print-foot-text">
+              <b>Escala gráfica 1:${scaleE}</b><br>
+              El diámetro de cada círculo representa el área real (m²) del espacio, dibujado a esta escala. Las distancias entre espacios son esquemáticas, no acotadas.<br>
+              ${nodes.length} espacios · ${totalArea.toFixed(1)} m² totales
+            </div>
+          </div>
+        </div>
+        <div class="print-side-col">
+          ${buildAreasTableHtml()}
+          <div class="legend-block">
+            <div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchImportancia()}</div>
+            <div class="matrix-legend-list"><div class="lg-title">Relación Física</div>${legendSwatchFisica()}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  window.print();
+}
+
+/* -- tabla de áreas: mismo formato que la lámina de oficina (índice en
+      itálica, agrupado por planta, subtotal y TOTAL general) -- */
+function buildAreasTableHtml(){
+  const groups = ['baja','alta'].map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
+  const totalGeneral = nodes.reduce((a,n)=>a+n.area,0);
+  let html = '';
+  groups.forEach(g=>{
+    const subtotal = g.items.reduce((a,n)=>a+n.area,0);
+    html += `<table class="areas-table">
+      <thead><tr><th colspan="2">Planta ${g.p==='baja'?'Baja':'Alta'}</th><th>m²</th></tr></thead>
+      <tbody>
+        ${g.items.map((n,i)=>`<tr><td class="idx">${String(i+1).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area}</td></tr>`).join('')}
+        <tr class="subtotal"><td colspan="2">Subtotal</td><td class="num">${subtotal.toFixed(1)}</td></tr>
+      </tbody>
+    </table>`;
+  });
+  html += `<table class="areas-table total-table"><tbody><tr class="total"><td colspan="2">TOTAL</td><td class="num">${totalGeneral.toFixed(1)}</td></tr></tbody></table>`;
+  return html;
+}
+function exportAreasPDF(){
+  if(!nodes.length) return;
+  const proyecto = document.getElementById('fProyecto').value || 'PROYECTO';
+  const fase = document.getElementById('fFase').value || '';
+  document.getElementById('printArea').innerHTML = `
+    <div class="print-page">
+      <div class="print-head">
+        <span class="t1">${proyecto}</span>
+        <span class="t2">Tabla de Áreas</span>
+        ${fase ? `<span class="t3">Fase: ${fase}</span>` : ''}
+      </div>
+      <div class="print-body" style="flex-direction:column; gap:14px;">${buildAreasTableHtml()}</div>
+    </div>
+  `;
+  window.print();
+}
+
+window.addEventListener('afterprint', ()=>{
+  const el = document.getElementById('printArea');
+  if(el) el.innerHTML = '';
+});
+
 /* =========================================================================
    7) CONTROLES
    ========================================================================= */
@@ -806,6 +1091,9 @@ document.getElementById('btnEjemplo').onclick = ejemplo;
 document.getElementById('btnGenerar').onclick = ()=>{ autoGenerate(); };
 document.getElementById('btnExportJSON').onclick = exportJSON;
 document.getElementById('btnExportSVG').onclick = exportSVG;
+document.getElementById('btnExportBubblePDF').onclick = exportBubblePDF;
+document.getElementById('btnExportAreasPDF').onclick = exportAreasPDF;
+document.getElementById('btnExportMatricesPDF').onclick = exportMatricesPDF;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
   if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:'baja'});
   else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});

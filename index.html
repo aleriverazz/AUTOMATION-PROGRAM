@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Programa → Burbujas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
   :root{
@@ -19,8 +19,8 @@
     --alta:#3E6E8E;
     --negativa:#B5432E;
     --border:#C7CEDA;
-    --mono:'JetBrains Mono',monospace;
-    --sans:'Public Sans',sans-serif;
+    --mono:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    --sans:'Helvetica Neue',Helvetica,Arial,sans-serif;
   }
   *{box-sizing:border-box;}
   body{
@@ -147,8 +147,8 @@
   .matrix-legend-list svg{flex:none;}
   .motivo-list{font:11px var(--sans); color:var(--ink-soft); line-height:1.65; margin:0; padding-left:18px;}
   .motivo-list li{margin-bottom:4px;}
-  .row-label{font-size:11px; font-family:'Public Sans',sans-serif; fill:#17233B;}
-  .row-index{font-size:10px; font-family:'JetBrains Mono',monospace; font-style:italic; fill:#8A93A3;}
+  .row-label{font-size:11px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; fill:#17233B;}
+  .row-index{font-size:10px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-style:italic; fill:#8A93A3;}
   .empty-note{font:11px var(--mono); color:var(--ink-faint); padding:6px 0;}
 
   .matrix-toolbar{display:flex; align-items:center; padding:12px 18px; border-bottom:1px solid var(--border); background:var(--panel);}
@@ -160,23 +160,23 @@
   .print-page{width:100%; padding:6mm 0; page-break-after:always;}
   .print-page:last-child{page-break-after:auto;}
   .print-head{margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid #C7CEDA;}
-  .print-head .t1{font:700 20px 'Public Sans',sans-serif; color:#17233B; display:block;}
-  .print-head .t2{font:italic 14px 'Public Sans',sans-serif; color:#4A5771; display:block;}
-  .print-head .t3{font:11px 'JetBrains Mono',monospace; color:#8A93A3; margin-top:4px; display:block;}
+  .print-head .t1{font:700 20px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#17233B; display:block;}
+  .print-head .t2{font:italic 14px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; display:block;}
+  .print-head .t3{font:11px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; margin-top:4px; display:block;}
   .print-body{display:flex; gap:32px; align-items:flex-start;}
   .print-body-split{display:flex; gap:26px; align-items:flex-start;}
   .print-diagram-col{flex:1; min-width:0;}
   .print-side-col{width:300px; flex:none; display:flex; flex-direction:column; gap:16px;}
   .legend-block{display:flex; flex-direction:column; gap:14px;}
   .print-foot{display:flex; gap:18px; align-items:center; margin-top:14px; padding-top:10px; border-top:1px solid #C7CEDA;}
-  .print-foot-text{font:9.5px 'JetBrains Mono',monospace; color:#4A5771; line-height:1.55;}
-  .areas-table{width:340px; border-collapse:collapse; font:11px 'Public Sans',sans-serif;}
-  .areas-table th{font:700 10px 'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:5px 6px; border-bottom:1.5px solid #17233B;}
+  .print-foot-text{font:9.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.55;}
+  .areas-table{width:340px; border-collapse:collapse; font:11px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
+  .areas-table th{font:700 10px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:5px 6px; border-bottom:1.5px solid #17233B;}
   .areas-table td{padding:4px 6px; border-bottom:1px solid #E3E6EC;}
-  .areas-table td.idx{font:italic 10px 'JetBrains Mono',monospace; color:#8A93A3; width:26px;}
-  .areas-table td.num{text-align:right; font-family:'JetBrains Mono',monospace;}
+  .areas-table td.idx{font:italic 10px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; width:26px;}
+  .areas-table td.num{text-align:right; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
   .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B;}
-  .areas-table tr.total td{font:700 13px 'Public Sans',sans-serif; border-top:2px solid #17233B; padding-top:8px;}
+  .areas-table tr.total td{font:700 13px 'Helvetica Neue',Helvetica,Arial,sans-serif; border-top:2px solid #17233B; padding-top:8px;}
   @media print{
     body > *:not(#printArea){display:none !important;}
     #printArea{display:block !important;}
@@ -691,7 +691,7 @@ function svgMatrixMotivos(motivoMap){
       const num = motivoMap.get(text) || '?';
       s += `<g><title>${a.id} — ${b.id}: ${text}</title>
         <path d="${diamondPath(p.x,p.y,r)}" fill="#fff" stroke="#8A93A3" stroke-width="1"/>
-        <text x="${p.x}" y="${p.y+3}" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#17233B">${num}</text>
+        <text x="${p.x}" y="${p.y+3}" text-anchor="middle" font-size="9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#17233B">${num}</text>
       </g>`;
     } else {
       s += `<path d="${diamondPath(p.x,p.y,r*0.55)}" fill="none" stroke="#E3E6EC" stroke-width="1"/>`;
@@ -957,11 +957,11 @@ function svgTrueScaleBubbles(scaleE, layout){
     s += `<circle cx="${cx}" cy="${cy}" r="${r+0.8}" fill="none" stroke="#17233B" stroke-width="0.25"/>`;
     s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#17233B" stroke-width="0.3"/>`;
     if(r > 9){
-      s += `<text x="${cx}" y="${cy-r+2.6}" text-anchor="middle" font-size="1.9" font-family="'JetBrains Mono',monospace" fill="#F7F8FA" opacity=".85">${idx}</text>`;
-      s += `<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="${Math.min(3.2,r/3)}" font-family="'Public Sans',sans-serif" font-weight="600" fill="#F7F8FA">${p.id}</text>`;
-      s += `<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="2.4" font-family="'JetBrains Mono',monospace" fill="#F7F8FA" opacity=".9">${p.area} m²</text>`;
+      s += `<text x="${cx}" y="${cy-r+2.6}" text-anchor="middle" font-size="1.9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#F7F8FA" opacity=".85">${idx}</text>`;
+      s += `<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="${Math.min(3.2,r/3)}" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="600" fill="#F7F8FA">${p.id}</text>`;
+      s += `<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="2.4" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#F7F8FA" opacity=".9">${p.area} m²</text>`;
     } else {
-      s += `<text x="${cx}" y="${cy-r-1.8}" text-anchor="middle" font-size="2.6" font-family="'JetBrains Mono',monospace" fill="#17233B">${idx}</text>`;
+      s += `<text x="${cx}" y="${cy-r-1.8}" text-anchor="middle" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#17233B">${idx}</text>`;
     }
   });
   s += `</svg>`;
@@ -978,8 +978,8 @@ function scaleBarSVG(scaleE){
     const x0=5+i*step*mmPerMeter, x1=x0+step*mmPerMeter;
     s += `<rect x="${x0}" y="4" width="${x1-x0}" height="3" fill="${i%2===0?'#17233B':'#fff'}" stroke="#17233B" stroke-width="0.3"/>`;
   }
-  s += `<text x="5" y="12" font-size="2.6" font-family="'JetBrains Mono',monospace" fill="#4A5771">0</text>`;
-  s += `<text x="${5+count*step*mmPerMeter}" y="12" font-size="2.6" font-family="'JetBrains Mono',monospace" fill="#4A5771" text-anchor="end">${count*step} m</text>`;
+  s += `<text x="5" y="12" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771">0</text>`;
+  s += `<text x="${5+count*step*mmPerMeter}" y="12" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771" text-anchor="end">${count*step} m</text>`;
   s += `</svg>`;
   return s;
 }

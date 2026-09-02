@@ -164,19 +164,22 @@
   .print-head .t2{font:italic 14px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; display:block;}
   .print-head .t3{font:11px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; margin-top:4px; display:block;}
   .print-body{display:flex; gap:32px; align-items:flex-start;}
-  .print-body-split{display:flex; gap:26px; align-items:flex-start;}
+  .print-body-split{display:flex; gap:22px; align-items:flex-start;}
   .print-diagram-col{flex:1; min-width:0;}
-  .print-side-col{width:300px; flex:none; display:flex; flex-direction:column; gap:16px;}
-  .legend-block{display:flex; flex-direction:column; gap:14px;}
-  .print-foot{display:flex; gap:18px; align-items:center; margin-top:14px; padding-top:10px; border-top:1px solid #C7CEDA;}
-  .print-foot-text{font:9.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.55;}
-  .areas-table{width:340px; border-collapse:collapse; font:11px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
-  .areas-table th{font:700 10px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:5px 6px; border-bottom:1.5px solid #17233B;}
-  .areas-table td{padding:4px 6px; border-bottom:1px solid #E3E6EC;}
-  .areas-table td.idx{font:italic 10px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; width:26px;}
+  .print-side-col{width:260px; flex:none; display:flex; flex-direction:column; gap:10px;}
+  .legend-block{display:flex; flex-direction:column; gap:8px;}
+  .areas-table{width:260px; border-collapse:collapse; font:9.5px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
+  .areas-table th{font:700 8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:3px 5px; border-bottom:1.2px solid #17233B;}
+  .areas-table td{padding:2.5px 5px; border-bottom:1px solid #E3E6EC;}
+  .areas-table td.idx{font:italic 8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; width:20px;}
   .areas-table td.num{text-align:right; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
-  .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B;}
-  .areas-table tr.total td{font:700 13px 'Helvetica Neue',Helvetica,Arial,sans-serif; border-top:2px solid #17233B; padding-top:8px;}
+  .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B; padding-top:3px;}
+  .areas-table tr.total td{font:700 11px 'Helvetica Neue',Helvetica,Arial,sans-serif; border-top:2px solid #17233B; padding-top:5px;}
+  .matrix-legend-list{font-size:10px;}
+  .matrix-legend-list .lg-row{margin-bottom:3px; gap:6px;}
+  .print-foot{display:flex; gap:18px; align-items:center; margin-top:14px; padding-top:10px; border-top:1px solid #C7CEDA; width:100%;}
+  .legend-2col{display:grid; grid-template-columns:1fr 1fr; column-gap:10px;}
+  .print-foot-text{font:9.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.55;}
   @media print{
     body > *:not(#printArea){display:none !important;}
     #printArea{display:block !important;}
@@ -208,6 +211,13 @@
 
 <main>
   <aside>
+    <div class="section-title">Plantas / Niveles<span></span></div>
+    <div id="plantaChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
+    <div style="display:flex; gap:6px; margin-bottom:4px;">
+      <input id="newPlantaName" placeholder="ej. Nivel 2" style="flex:1; font:12px var(--sans); border:1px solid var(--border); padding:5px 7px; background:#fff;">
+      <button class="ghost" id="btnAddPlanta" style="padding:6px 10px;">+ agregar</button>
+    </div>
+
     <div class="section-title">Nodos (espacios)<span></span></div>
     <table id="tblNodos">
       <thead><tr><th>Espacio</th><th>m²</th><th>Planta</th><th></th></tr></thead>
@@ -303,11 +313,11 @@ const FISICA = {
   'por-decidir':        {label:'Por decidir',        distance:150},
 };
 const IMPORTANCIA = {
-  'mandatoria':  {label:'Mandatoria',  strength:1.0,  width:3.2, dash:null,     color:'var(--ink)'},
-  'deseable':    {label:'Deseable',    strength:0.55, width:1.8, dash:null,     color:'var(--ink-soft)'},
-  'neutral':     {label:'Neutral',     strength:0.2,  width:1,   dash:'3 4',    color:'var(--ink-faint)'},
-  'negativa':    {label:'Negativa/Separatoria', strength:0, width:1.4, dash:'2 5', color:'var(--negativa)'},
-  'por-decidir': {label:'Por decidir', strength:0.1,  width:1,   dash:'1 5',    color:'var(--ink-faint)'},
+  'mandatoria':  {label:'Mandatoria',  strength:1.0,  width:5,   dash:null,     color:'var(--ink)'},
+  'deseable':    {label:'Deseable',    strength:0.55, width:4,   dash:null,     color:'var(--ink-soft)'},
+  'neutral':     {label:'Neutral',     strength:0.2,  width:2.2, dash:'3 4',    color:'var(--ink-faint)'},
+  'negativa':    {label:'Negativa/Separatoria', strength:0, width:3, dash:'2 5', color:'var(--negativa)'},
+  'por-decidir': {label:'Por decidir', strength:0.1,  width:1.5, dash:'1 5',    color:'var(--ink-faint)'},
 };
 const PLANTA_COLOR = { baja: 'var(--baja)', alta: 'var(--alta)' };
 
@@ -325,6 +335,15 @@ const MATRIZ_COLOR = {
   'por-decidir': null
 };
 
+/* paleta rotativa para distinguir plantas/niveles (ya no solo baja/alta) */
+const PLANTA_PALETTE = ['#B9862E','#3E6E8E','#6E8E3E','#8E3E6E','#3E8E86','#8E6B3E','#5B4E8E'];
+let plantaColors = {};
+function plantaColor(planta){
+  if(plantaColors[planta]) return plantaColors[planta];
+  const i = Math.max(0, plantas.indexOf(planta));
+  return PLANTA_PALETTE[i % PLANTA_PALETTE.length];
+}
+
 /* =========================================================================
    2) DATOS — estructura mínima. Reemplacen cargarEjemplo() por su propio
       parser del export de Google Sheets cuando definan el formato final
@@ -332,25 +351,56 @@ const MATRIZ_COLOR = {
    ========================================================================= */
 let nodes = [];
 let edges = [];
+let plantas = ['Baja','Alta'];
+
+function renderPlantaChips(){
+  const el = document.getElementById('plantaChips');
+  el.innerHTML = plantas.map((p,i)=>`
+    <span style="display:inline-flex; align-items:center; gap:6px; font:11px var(--mono); border:1px solid var(--border); padding:4px 8px; background:#fff;">
+      <input type="color" data-color-planta="${i}" value="${plantaColor(p)}" style="width:16px; height:16px; padding:0; border:none; cursor:pointer;">
+      ${p}<span data-del-planta="${i}" style="cursor:pointer; color:var(--ink-faint);" title="Quitar planta">✕</span>
+    </span>`).join('');
+  el.querySelectorAll('[data-del-planta]').forEach(x=>{
+    x.onclick = ()=>{
+      if(plantas.length<=1) return;
+      const i = +x.dataset.delPlanta;
+      const removed = plantas[i];
+      plantas.splice(i,1);
+      delete plantaColors[removed];
+      nodes.forEach(n=>{ if(n.planta===removed) n.planta = plantas[0]; });
+      renderPlantaChips(); renderTables(); refreshMatricesIfVisible();
+    };
+  });
+  el.querySelectorAll('[data-color-planta]').forEach(x=>{
+    x.onchange = ()=>{
+      const p = plantas[+x.dataset.colorPlanta];
+      plantaColors[p] = x.value;
+      if(currentConfigs.length){ renderGrid(); renderDetail(); }
+      refreshMatricesIfVisible();
+    };
+  });
+}
 
 function ejemplo(){
+  plantas = ['Baja','Alta'];
+  plantaColors = {Baja: PLANTA_PALETTE[0], Alta: PLANTA_PALETTE[1]};
   nodes = [
-    {id:'Cochera', area:28, planta:'baja'},
-    {id:'Vestíbulo', area:3.5, planta:'baja'},
-    {id:'Medio baño', area:2.5, planta:'baja'},
-    {id:'Sala', area:14, planta:'baja'},
-    {id:'Comedor', area:12, planta:'baja'},
-    {id:'Cocina', area:10, planta:'baja'},
-    {id:'Lavado', area:4, planta:'baja'},
-    {id:'Escalera', area:3, planta:'baja'},
-    {id:'Patio', area:35, planta:'baja'},
-    {id:'Hall alto', area:7, planta:'alta'},
-    {id:'Oficina', area:9, planta:'alta'},
-    {id:'Rec. secundaria', area:12, planta:'alta'},
-    {id:'Baño completo', area:4.5, planta:'alta'},
-    {id:'Rec. principal', area:15, planta:'alta'},
-    {id:'Vestidor', area:6, planta:'alta'},
-    {id:'Baño principal', area:8.5, planta:'alta'},
+    {id:'Cochera', area:28, planta:'Baja'},
+    {id:'Vestíbulo', area:3.5, planta:'Baja'},
+    {id:'Medio baño', area:2.5, planta:'Baja'},
+    {id:'Sala', area:14, planta:'Baja'},
+    {id:'Comedor', area:12, planta:'Baja'},
+    {id:'Cocina', area:10, planta:'Baja'},
+    {id:'Lavado', area:4, planta:'Baja'},
+    {id:'Escalera', area:3, planta:'Baja'},
+    {id:'Patio', area:35, planta:'Baja'},
+    {id:'Hall alto', area:7, planta:'Alta'},
+    {id:'Oficina', area:9, planta:'Alta'},
+    {id:'Rec. secundaria', area:12, planta:'Alta'},
+    {id:'Baño completo', area:4.5, planta:'Alta'},
+    {id:'Rec. principal', area:15, planta:'Alta'},
+    {id:'Vestidor', area:6, planta:'Alta'},
+    {id:'Baño principal', area:8.5, planta:'Alta'},
   ];
   edges = [
     ['Cochera','Vestíbulo','1 — acceso directo desde el auto','contiguo-abierta','mandatoria'],
@@ -375,6 +425,7 @@ function ejemplo(){
   ].map(([source,target,motivo,fisica,importancia])=>({source,target,motivo,fisica,importancia}));
   document.getElementById('fMotivos').value =
     '1. Continuidad de recorrido / acceso\n2. Instalación hidrosanitaria compartida\n3. Aislamiento acústico / ruido indeseable\n4. Conveniencia funcional\n5. Integración visual open-plan';
+  renderPlantaChips();
   renderTables();
   autoGenerate();
 }
@@ -414,7 +465,10 @@ function buildSimulation(seedIndex, chargeStrength, W, H){
       .strength(d => IMPORTANCIA[d.importancia].strength))
     .force('charge', d3.forceManyBody().strength(-chargeStrength))
     .force('collide', d3.forceCollide(d => radiusFor(d.area,kScale) + 5))
-    .force('x', d3.forceX(d => d.planta==='baja' ? W*0.32 : W*0.68).strength(0.045))
+    .force('x', d3.forceX(d => {
+      const i = Math.max(0, plantas.indexOf(d.planta));
+      return W * (i+1)/(plantas.length+1);
+    }).strength(0.045))
     .force('y', d3.forceY(H/2).strength(0.02))
     .force('separacion', () => {
       sepEdges.forEach(e=>{
@@ -494,28 +548,29 @@ function svgFor(result, W=720, H=560, interactive=false){
     const b = typeof e.target==='object'? e.target : result.nodes.find(n=>n.id===e.target);
     if(!a||!b) return;
     s += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"
-      stroke="${style.color.replace('var(--ink)','#17233B').replace('var(--ink-soft)','#4A5771').replace('var(--ink-faint)','#8A93A3')}"
-      stroke-width="${style.width}" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.85:0.6}"><title>${(a.id||a)} — ${(b.id||b)}${e.motivo?' · '+e.motivo:''}</title></line>`;
+      stroke="${MATRIZ_COLOR[e.importancia] || '#C7CEDA'}"
+      stroke-width="${style.width}" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.9:0.75}"><title>${(a.id||a)} — ${(b.id||b)}${e.motivo?' · '+e.motivo:''}</title></line>`;
     const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
-    s += `<circle cx="${mx}" cy="${my}" r="7" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, 5.5)}`;
+    const gR = 6; // mismo tamaño que el ícono de la leyenda, tamaño fijo
+    s += `<circle cx="${mx}" cy="${my}" r="${gR+1.5}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR)}`;
   });
   result.nodes.forEach((n,ni)=>{
     const idx = String(ni+1).padStart(2,'0');
     const r = radiusFor(n.area, kScale);
-    const fill = n.planta==='baja' ? '#B9862E' : '#3E6E8E';
-    s += `<circle cx="${n.x}" cy="${n.y}" r="${r+3}" fill="none" stroke="#17233B" stroke-width="1"/>`;
-    s += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${fill}" stroke="#17233B" stroke-width="1"/>`;
+    const ring = plantaColor(n.planta);
+    s += `<circle cx="${n.x}" cy="${n.y}" r="${r+3}" fill="none" stroke="${ring}" stroke-width="3"/>`;
+    s += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="1"/>`;
     if(r >= 26){
       const words = n.id.split(' ');
       const lines = words.length>1 && r<40 ? [words.slice(0,Math.ceil(words.length/2)).join(' '), words.slice(Math.ceil(words.length/2)).join(' ')] : [n.id];
-      s += `<text class="bubble-label" x="${n.x}" y="${n.y - 10 - (lines.length-1)*5.5}" font-size="8" opacity=".8">${idx}</text>`;
+      s += `<text x="${n.x}" y="${n.y - 10 - (lines.length-1)*5.5}" text-anchor="middle" font-size="8" fill="#8A93A3">${idx}</text>`;
       lines.forEach((line,i)=>{
-        s += `<text class="bubble-label" x="${n.x}" y="${n.y - 4 + i*11 - (lines.length-1)*5.5}" font-size="${Math.min(11, r/2.6)}">${line}</text>`;
+        s += `<text x="${n.x}" y="${n.y - 4 + i*11 - (lines.length-1)*5.5}" text-anchor="middle" font-size="${Math.min(11, r/2.6)}" font-weight="600" fill="#17233B">${line}</text>`;
       });
-      s += `<text class="bubble-area" x="${n.x}" y="${n.y + 12 + (lines.length-1)*5}">${n.area} m²</text>`;
+      s += `<text x="${n.x}" y="${n.y + 12 + (lines.length-1)*5}" text-anchor="middle" font-size="9" fill="#4A5771">${n.area} m²</text>`;
     } else {
-      s += `<text class="bubble-label" x="${n.x}" y="${n.y-1}" font-size="${Math.min(10,r/1.6)}">${idx}</text>`;
-      s += `<text class="bubble-area" x="${n.x}" y="${n.y + Math.min(9,r/1.8)}" font-size="7">${n.area}</text>`;
+      s += `<text x="${n.x}" y="${n.y-1}" text-anchor="middle" font-size="${Math.min(10,r/1.6)}" font-weight="600" fill="#17233B">${idx}</text>`;
+      s += `<text x="${n.x}" y="${n.y + Math.min(9,r/1.8)}" text-anchor="middle" font-size="7" fill="#4A5771">${n.area}</text>`;
     }
   });
   s += `</g>`;
@@ -713,6 +768,12 @@ function legendSwatchImportancia(){
     return `<div class="lg-row"><svg width="18" height="18"><path d="${diamondPath(9,9,7)}" fill="${fill||'#fff'}" stroke="#8A93A3" stroke-width="1"/></svg>${v.label}</div>`;
   }).join('');
 }
+function legendSwatchAdyacenciaLine(){
+  return Object.entries(IMPORTANCIA).map(([k,v])=>{
+    const col = MATRIZ_COLOR[k] || '#C7CEDA';
+    return `<div class="lg-row"><svg width="26" height="14"><line x1="2" y1="7" x2="24" y2="7" stroke="${col}" stroke-width="3.5" ${v.dash?`stroke-dasharray="${v.dash}"`:''}/></svg>${v.label}</div>`;
+  }).join('');
+}
 function legendSwatchFisica(){
   return Object.entries(FISICA).map(([k,v])=>{
     return `<div class="lg-row"><svg width="18" height="18">${glyphMarkup(k,9,9,6)}</svg>${v.label}</div>`;
@@ -791,8 +852,7 @@ function renderTables(){
     tr.innerHTML = `<td><input value="${n.id}" data-i="${i}" data-f="id"></td>
       <td class="num"><input type="number" step="0.5" value="${n.area}" data-i="${i}" data-f="area"></td>
       <td><select data-i="${i}" data-f="planta">
-        <option value="baja" ${n.planta==='baja'?'selected':''}>Baja</option>
-        <option value="alta" ${n.planta==='alta'?'selected':''}>Alta</option>
+        ${plantas.map(p=>`<option ${n.planta===p?'selected':''}>${p}</option>`).join('')}
       </select></td>
       <td class="row-del" data-del="${i}">✕</td>`;
     tb.appendChild(tr);
@@ -841,6 +901,8 @@ function currentPayload(){
     fase: document.getElementById('fFase').value,
     elaboro: document.getElementById('fElaboro').value,
     motivos: document.getElementById('fMotivos').value,
+    plantas,
+    plantaColors,
     nodes,
     edges: edges.map(e=>({source:e.source.id||e.source, target:e.target.id||e.target, motivo:e.motivo, fisica:e.fisica, importancia:e.importancia})),
     variante: c ? {
@@ -945,21 +1007,22 @@ function svgTrueScaleBubbles(scaleE, layout){
     const style = IMPORTANCIA[e.importancia];
     const a = byId(e.source.id||e.source), b = byId(e.target.id||e.target);
     if(!a||!b) return;
-    const col = style.color.replace('var(--ink)','#17233B').replace('var(--ink-soft)','#4A5771').replace('var(--ink-faint)','#8A93A3');
-    s += `<line x1="${tx(a)}" y1="${ty(a)}" x2="${tx(b)}" y2="${ty(b)}" stroke="${col}" stroke-width="${style.width*0.35}" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.85:0.6}"/>`;
+    const col = MATRIZ_COLOR[e.importancia] || '#C7CEDA';
+    s += `<line x1="${tx(a)}" y1="${ty(a)}" x2="${tx(b)}" y2="${ty(b)}" stroke="${col}" stroke-width="${style.width*0.5}" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.9:0.75}"/>`;
     const mx=(tx(a)+tx(b))/2, my=(ty(a)+ty(b))/2;
-    s += `<circle cx="${mx}" cy="${my}" r="2.4" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, 1.8)}`;
+    const gR = 1.4; // mismo tamaño relativo que el ícono de la leyenda, fijo
+    s += `<circle cx="${mx}" cy="${my}" r="${gR+0.4}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR)}`;
   });
   layout.pts.forEach((p,pi)=>{
     const idx = String(pi+1).padStart(2,'0');
     const r = p.r*mmPerUnit, cx=tx(p), cy=ty(p);
-    const fill = p.planta==='baja' ? '#B9862E' : '#3E6E8E';
-    s += `<circle cx="${cx}" cy="${cy}" r="${r+0.8}" fill="none" stroke="#17233B" stroke-width="0.25"/>`;
-    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#17233B" stroke-width="0.3"/>`;
+    const ring = plantaColor(p.planta);
+    s += `<circle cx="${cx}" cy="${cy}" r="${r+0.9}" fill="none" stroke="${ring}" stroke-width="0.9"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="0.25"/>`;
     if(r > 9){
-      s += `<text x="${cx}" y="${cy-r+2.6}" text-anchor="middle" font-size="1.9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#F7F8FA" opacity=".85">${idx}</text>`;
-      s += `<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="${Math.min(3.2,r/3)}" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="600" fill="#F7F8FA">${p.id}</text>`;
-      s += `<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="2.4" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#F7F8FA" opacity=".9">${p.area} m²</text>`;
+      s += `<text x="${cx}" y="${cy-r+2.6}" text-anchor="middle" font-size="1.9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#8A93A3">${idx}</text>`;
+      s += `<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="${Math.min(3.2,r/3)}" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="600" fill="#17233B">${p.id}</text>`;
+      s += `<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="2.4" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771">${p.area} m²</text>`;
     } else {
       s += `<text x="${cx}" y="${cy-r-1.8}" text-anchor="middle" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#17233B">${idx}</text>`;
     }
@@ -992,7 +1055,7 @@ function exportBubblePDF(){
   const elaboro = document.getElementById('fElaboro').value || '';
 
   const layout = buildTrueScaleLayout(c.result);
-  const scaleE = chooseScale(layout.bboxW, layout.bboxH, layout.kScale, 220, 115);
+  const scaleE = chooseScale(layout.bboxW, layout.bboxH, layout.kScale, 195, 152);
   const svgMarkup = svgTrueScaleBubbles(scaleE, layout);
   const totalArea = nodes.reduce((a,n)=>a+n.area,0);
 
@@ -1011,21 +1074,21 @@ function exportBubblePDF(){
       <div class="print-body-split">
         <div class="print-diagram-col">
           <div class="matrix-svg-wrap">${svgMarkup}</div>
-          <div class="print-foot">
-            ${scaleBarSVG(scaleE)}
-            <div class="print-foot-text">
-              <b>Escala gráfica 1:${scaleE}</b><br>
-              El diámetro de cada círculo representa el área real (m²) del espacio, dibujado a esta escala. Las distancias entre espacios son esquemáticas, no acotadas.<br>
-              ${nodes.length} espacios · ${totalArea.toFixed(1)} m² totales
-            </div>
-          </div>
         </div>
         <div class="print-side-col">
           ${buildAreasTableHtml()}
           <div class="legend-block">
-            <div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchImportancia()}</div>
-            <div class="matrix-legend-list"><div class="lg-title">Relación Física</div>${legendSwatchFisica()}</div>
+            <div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchAdyacenciaLine()}</div>
+            <div class="matrix-legend-list"><div class="lg-title">Relación Física</div><div class="legend-2col">${legendSwatchFisica()}</div></div>
           </div>
+        </div>
+      </div>
+      <div class="print-foot">
+        ${scaleBarSVG(scaleE)}
+        <div class="print-foot-text">
+          <b>Escala gráfica 1:${scaleE}</b><br>
+          El diámetro de cada círculo representa el área real (m²) del espacio, dibujado a esta escala. Las distancias entre espacios son esquemáticas, no acotadas.<br>
+          ${nodes.length} espacios · ${totalArea.toFixed(1)} m² totales
         </div>
       </div>
     </div>
@@ -1036,20 +1099,20 @@ function exportBubblePDF(){
 /* -- tabla de áreas: mismo formato que la lámina de oficina (índice en
       itálica, agrupado por planta, subtotal y TOTAL general) -- */
 function buildAreasTableHtml(){
-  const groups = ['baja','alta'].map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
+  const groups = plantas.map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
   const totalGeneral = nodes.reduce((a,n)=>a+n.area,0);
   let html = '';
   groups.forEach(g=>{
     const subtotal = g.items.reduce((a,n)=>a+n.area,0);
     html += `<table class="areas-table">
-      <thead><tr><th colspan="2">Planta ${g.p==='baja'?'Baja':'Alta'}</th><th>m²</th></tr></thead>
+      <thead><tr><th colspan="2">Planta ${g.p}</th><th>m²</th></tr></thead>
       <tbody>
-        ${g.items.map((n,i)=>`<tr><td class="idx">${String(i+1).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area}</td></tr>`).join('')}
-        <tr class="subtotal"><td colspan="2">Subtotal</td><td class="num">${subtotal.toFixed(1)}</td></tr>
+        ${g.items.map((n,i)=>`<tr><td class="idx">${String(i+1).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td></tr>`).join('')}
+        <tr class="subtotal"><td colspan="2">Subtotal</td><td class="num">${subtotal.toFixed(1)} m²</td></tr>
       </tbody>
     </table>`;
   });
-  html += `<table class="areas-table total-table"><tbody><tr class="total"><td colspan="2">TOTAL</td><td class="num">${totalGeneral.toFixed(1)}</td></tr></tbody></table>`;
+  html += `<table class="areas-table total-table"><tbody><tr class="total"><td colspan="2">TOTAL</td><td class="num">${totalGeneral.toFixed(1)} m²</td></tr></tbody></table>`;
   return html;
 }
 function exportAreasPDF(){
@@ -1088,6 +1151,16 @@ function autoGenerate(){
 }
 
 document.getElementById('btnEjemplo').onclick = ejemplo;
+document.getElementById('btnAddPlanta').onclick = ()=>{
+  const input = document.getElementById('newPlantaName');
+  const name = input.value.trim();
+  if(!name || plantas.includes(name)) return;
+  plantas.push(name);
+  plantaColors[name] = PLANTA_PALETTE[(plantas.length-1) % PLANTA_PALETTE.length];
+  input.value = '';
+  renderPlantaChips();
+  renderTables();
+};
 document.getElementById('btnGenerar').onclick = ()=>{ autoGenerate(); };
 document.getElementById('btnExportJSON').onclick = exportJSON;
 document.getElementById('btnExportSVG').onclick = exportSVG;
@@ -1095,7 +1168,7 @@ document.getElementById('btnExportBubblePDF').onclick = exportBubblePDF;
 document.getElementById('btnExportAreasPDF').onclick = exportAreasPDF;
 document.getElementById('btnExportMatricesPDF').onclick = exportMatricesPDF;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
-  if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:'baja'});
+  if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0]});
   else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});
   renderTables();
   refreshMatricesIfVisible();
@@ -1223,8 +1296,11 @@ async function ghLoadEstudio(){
     document.getElementById('fFase').value = payload.fase || '';
     document.getElementById('fElaboro').value = payload.elaboro || '';
     document.getElementById('fMotivos').value = payload.motivos || '';
+    plantas = payload.plantas && payload.plantas.length ? payload.plantas : ['Baja','Alta'];
+    plantaColors = payload.plantaColors || {};
     nodes = payload.nodes || [];
     edges = payload.edges || [];
+    renderPlantaChips();
     renderTables();
     autoGenerate();
     ghStatus(`cargado: ${slug}`);

@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --paper:#EDEFF3;
@@ -59,8 +60,10 @@
   button:hover{opacity:.82;}
   button:active{opacity:.65;}
 
-  main{display:grid; grid-template-columns:340px 1fr; min-height:calc(100vh - 64px);}
-  @media (max-width:860px){ main{grid-template-columns:1fr;} }
+  main{display:grid; grid-template-columns:var(--aside-w,340px) 6px 1fr; min-height:calc(100vh - 64px);}
+  @media (max-width:860px){ main{grid-template-columns:1fr;} #resizer{display:none;} }
+  #resizer{cursor:col-resize; background:var(--border); position:relative;}
+  #resizer:hover, #resizer.dragging{background:var(--ink-soft);}
 
   /* ---- left: data ---- */
   aside{border-right:2px solid var(--ink); background:var(--panel); padding:16px; overflow:auto;}
@@ -75,6 +78,13 @@
   td input, td select{width:100%; font:12px var(--sans); border:1px solid transparent; background:transparent; padding:3px 2px; border-radius:2px;}
   td input:focus, td select:focus{outline:none; border-color:var(--border); background:#fff;}
   td.num input{width:44px;}
+  /* NUEVO — celda del ID numérico persistente en la tabla de Nodos */
+  td.idx-num{
+    font:italic 11px var(--mono);
+    color:var(--ink-faint);
+    text-align:center;
+    width:26px;
+  }
   .row-del{cursor:pointer; color:var(--ink-faint); font-family:var(--mono); font-size:14px; text-align:center;}
   .row-del:hover{color:var(--negativa);}
   .add-row{font:11px var(--mono); color:var(--ink-soft); background:none; border:1px dashed var(--border); width:100%; padding:6px; margin-top:6px; text-transform:none; letter-spacing:0;}
@@ -124,7 +134,7 @@
   .detail-head{display:flex; justify-content:space-between; align-items:baseline; margin:6px 0 10px;}
   .detail-head h2{font:600 15px var(--sans); margin:0;}
   .detail-frame{background:#fff; border:1px solid var(--border);}
-  .detail-frame svg{display:block; width:100%; height:560px;}
+  .detail-frame svg{display:block; width:100%; height:560px; cursor:grab; touch-action:none;}
 
   .bubble-label{font:600 10.5px var(--sans); fill:var(--panel); text-anchor:middle; pointer-events:none;}
   .bubble-area{font:9px var(--mono); fill:var(--panel); text-anchor:middle; opacity:.85; pointer-events:none;}
@@ -157,33 +167,34 @@
 
   /* ---- exportar a PDF: lámina oculta que solo se muestra al imprimir ---- */
   #printArea{display:none;}
-  .print-page{width:100%; padding:6mm 0; page-break-after:always;}
+  .print-page{width:100%; height:190mm; max-height:190mm; padding:4mm 0; overflow:hidden; page-break-after:always; box-sizing:border-box; display:flex; flex-direction:column;}
   .print-page:last-child{page-break-after:auto;}
-  .print-head{margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid #C7CEDA;}
-  .print-head .t1{font:700 20px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#17233B; display:block;}
-  .print-head .t2{font:italic 14px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; display:block;}
-  .print-head .t3{font:11px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; margin-top:4px; display:block;}
-  .print-body{display:flex; gap:32px; align-items:flex-start;}
-  .print-body-split{display:flex; gap:22px; align-items:flex-start;}
-  .print-diagram-col{flex:1; min-width:0;}
-  .print-side-col{width:260px; flex:none; display:flex; flex-direction:column; gap:10px;}
-  .legend-block{display:flex; flex-direction:column; gap:8px;}
-  .areas-table{width:260px; border-collapse:collapse; font:9.5px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
-  .areas-table th{font:700 8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:3px 5px; border-bottom:1.2px solid #17233B;}
-  .areas-table td{padding:2.5px 5px; border-bottom:1px solid #E3E6EC;}
-  .areas-table td.idx{font:italic 8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; width:20px;}
+  .print-head{margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid #C7CEDA; flex:none;}
+  .print-head .t1{font:700 16px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#17233B; display:block;}
+  .print-head .t2{font:italic 11px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; display:block;}
+  .print-head .t3{font:9px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; margin-top:2px; display:block;}
+  .print-body{display:flex; gap:32px; align-items:flex-start; flex:1; min-height:0; overflow:hidden;}
+  .print-body-split{display:flex; gap:18px; align-items:stretch; flex:1; min-height:0; overflow:hidden;}
+  .print-diagram-col{flex:1; min-width:0; display:flex; align-items:center; justify-content:center; overflow:hidden;}
+  .print-side-col{width:250px; flex:none; display:flex; flex-direction:column; gap:7px; overflow:hidden;}
+  .legend-block{display:flex; flex-direction:column; gap:6px;}
+  .areas-table{width:250px; border-collapse:collapse; font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
+  .areas-table th{font:700 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:2px 4px; border-bottom:1.2px solid #17233B;}
+  .areas-table td{padding:1.6px 4px; border-bottom:1px solid #E3E6EC;}
+  .areas-table td.idx{font:italic 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; width:18px;}
   .areas-table td.num{text-align:right; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
-  .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B; padding-top:3px;}
-  .areas-table tr.total td{font:700 11px 'Helvetica Neue',Helvetica,Arial,sans-serif; border-top:2px solid #17233B; padding-top:5px;}
-  .matrix-legend-list{font-size:10px;}
-  .matrix-legend-list .lg-row{margin-bottom:3px; gap:6px;}
-  .print-foot{display:flex; gap:18px; align-items:center; margin-top:14px; padding-top:10px; border-top:1px solid #C7CEDA; width:100%;}
-  .legend-2col{display:grid; grid-template-columns:1fr 1fr; column-gap:10px;}
-  .print-foot-text{font:9.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.55;}
+  .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B; padding-top:2px;}
+  .areas-table tr.total td{font:700 10px 'Helvetica Neue',Helvetica,Arial,sans-serif; border-top:2px solid #17233B; padding-top:4px;}
+  .matrix-legend-list{font-size:8.5px;}
+  .matrix-legend-list .lg-title{margin-bottom:4px;}
+  .matrix-legend-list .lg-row{margin-bottom:2px; gap:5px;}
+  .print-foot{display:flex; gap:16px; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid #C7CEDA; width:100%; flex:none;}
+  .legend-2col{display:grid; grid-template-columns:1fr 1fr; column-gap:8px;}
+  .print-foot-text{font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.45;}
   @media print{
     body > *:not(#printArea){display:none !important;}
     #printArea{display:block !important;}
-    @page{ size:landscape; margin:14mm; }
+    @page{ size:landscape; margin:10mm; }
   }
 </style>
 </head>
@@ -204,7 +215,8 @@
   </div>
   <div class="tb-spacer"></div>
   <div class="tb-actions">
-    <button class="ghost" id="btnEjemplo">Cargar ejemplo</button>
+    <input type="file" id="fileExcel" accept=".xlsx" style="display:none;">
+    <button class="ghost" id="btnImportExcel">Importar Excel</button>
     <button id="btnGenerar">Generar variantes</button>
   </div>
 </header>
@@ -220,7 +232,7 @@
 
     <div class="section-title">Nodos (espacios)<span></span></div>
     <table id="tblNodos">
-      <thead><tr><th>Espacio</th><th>m²</th><th>Planta</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Espacio</th><th>m²</th><th>Planta</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
     <button class="add-row" data-add="node">+ agregar espacio</button>
@@ -254,6 +266,8 @@
     </div>
   </aside>
 
+  <div id="resizer"></div>
+
   <div class="viewer">
     <div class="view-tabs">
       <button class="tab-btn active" data-view="burbujas" type="button">Burbujas</button>
@@ -267,6 +281,7 @@
         <div class="tb-spacer"></div>
         <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
         <button class="ghost" id="btnExportSVG">Exportar SVG</button>
+        <button class="ghost" id="btnExportDXF">Exportar DXF (CAD)</button>
         <button class="ghost" id="btnExportBubblePDF">Exportar PDF</button>
       </div>
 
@@ -275,7 +290,12 @@
       <div class="detail">
         <div class="detail-head">
           <h2>Variante seleccionada</h2>
-          <span id="scoreLabel" style="font:11px var(--mono); color:var(--ink-soft);"></span>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="mini-btn" id="btnZoomOut" title="Alejar">−</button>
+            <button class="mini-btn" id="btnZoomReset" title="Restablecer zoom">100%</button>
+            <button class="mini-btn" id="btnZoomIn" title="Acercar">+</button>
+            <span id="scoreLabel" style="font:11px var(--mono); color:var(--ink-soft);"></span>
+          </div>
         </div>
         <div class="detail-frame"><svg id="mainSvg" viewBox="0 0 720 560"></svg></div>
       </div>
@@ -347,11 +367,13 @@ function plantaColor(planta){
 /* =========================================================================
    2) DATOS — estructura mínima. Reemplacen cargarEjemplo() por su propio
       parser del export de Google Sheets cuando definan el formato final
-      (misma forma de objeto: nodes[] y edges[]).
+      (misma forma de objeto: nodes[] y edges[]). IMPORTANTE: cada nodo debe
+      incluir el campo numérico `num` (ID único e incremental, ver punto 5).
    ========================================================================= */
 let nodes = [];
 let edges = [];
 let plantas = ['Baja','Alta'];
+let nextNodeId = 1; // NUEVO — contador de IDs numéricos, nunca se reutiliza
 
 function renderPlantaChips(){
   const el = document.getElementById('plantaChips');
@@ -368,7 +390,7 @@ function renderPlantaChips(){
       plantas.splice(i,1);
       delete plantaColors[removed];
       nodes.forEach(n=>{ if(n.planta===removed) n.planta = plantas[0]; });
-      renderPlantaChips(); renderTables(); refreshMatricesIfVisible();
+      renderPlantaChips(); renderTables(); autoGenerate();
     };
   });
   el.querySelectorAll('[data-color-planta]').forEach(x=>{
@@ -402,6 +424,10 @@ function ejemplo(){
     {id:'Vestidor', area:6, planta:'Alta'},
     {id:'Baño principal', area:8.5, planta:'Alta'},
   ];
+  // NUEVO — asigna el ID numérico persistente en el orden de creación
+  nodes = nodes.map((n,i)=>({...n, num:i+1}));
+  nextNodeId = nodes.length + 1;
+
   edges = [
     ['Cochera','Vestíbulo','1 — acceso directo desde el auto','contiguo-abierta','mandatoria'],
     ['Vestíbulo','Sala','1 — recorrido de acceso','contiguo-abierta','mandatoria'],
@@ -534,7 +560,10 @@ function generateConfigs(count, chargeStrength){
 }
 
 /* =========================================================================
-   4) RENDER — diagrama de burbujas (sin cambios en esta versión)
+   4) RENDER — diagrama de burbujas (MODIFICADO: se reemplaza el índice de
+      posición por el ID numérico persistente n.num, mostrado en grande y
+      centrado, acompañado del nombre del espacio y su área en m² como
+      líneas secundarias que escalan según el radio del círculo)
    ========================================================================= */
 let currentConfigs = [];
 let selectedIndex = 0;
@@ -554,24 +583,19 @@ function svgFor(result, W=720, H=560, interactive=false){
     const gR = 6; // mismo tamaño que el ícono de la leyenda, tamaño fijo
     s += `<circle cx="${mx}" cy="${my}" r="${gR+1.5}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR)}`;
   });
-  result.nodes.forEach((n,ni)=>{
-    const idx = String(ni+1).padStart(2,'0');
+  result.nodes.forEach((n)=>{
     const r = radiusFor(n.area, kScale);
     const ring = plantaColor(n.planta);
     s += `<circle cx="${n.x}" cy="${n.y}" r="${r+3}" fill="none" stroke="${ring}" stroke-width="3"/>`;
     s += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="1"/>`;
-    if(r >= 26){
-      const words = n.id.split(' ');
-      const lines = words.length>1 && r<40 ? [words.slice(0,Math.ceil(words.length/2)).join(' '), words.slice(Math.ceil(words.length/2)).join(' ')] : [n.id];
-      s += `<text x="${n.x}" y="${n.y - 10 - (lines.length-1)*5.5}" text-anchor="middle" font-size="8" fill="#8A93A3">${idx}</text>`;
-      lines.forEach((line,i)=>{
-        s += `<text x="${n.x}" y="${n.y - 4 + i*11 - (lines.length-1)*5.5}" text-anchor="middle" font-size="${Math.min(11, r/2.6)}" font-weight="600" fill="#17233B">${line}</text>`;
-      });
-      s += `<text x="${n.x}" y="${n.y + 12 + (lines.length-1)*5}" text-anchor="middle" font-size="9" fill="#4A5771">${n.area} m²</text>`;
-    } else {
-      s += `<text x="${n.x}" y="${n.y-1}" text-anchor="middle" font-size="${Math.min(10,r/1.6)}" font-weight="600" fill="#17233B">${idx}</text>`;
-      s += `<text x="${n.x}" y="${n.y + Math.min(9,r/1.8)}" text-anchor="middle" font-size="7" fill="#4A5771">${n.area}</text>`;
-    }
+
+    const numSize  = Math.max(9,  Math.min(22, r*0.62));
+    const nameSize = Math.max(6,  Math.min(10, r*0.28));
+    const areaSize = Math.max(5,  Math.min(8,  r*0.22));
+
+    s += `<text x="${n.x}" y="${n.y - r*0.12}" text-anchor="middle" font-size="${numSize}" font-weight="700" fill="#17233B">${n.num}</text>`;
+    s += `<text x="${n.x}" y="${n.y + numSize*0.55 + 2}" text-anchor="middle" font-size="${nameSize}" font-weight="600" fill="#4A5771">${n.id}</text>`;
+    s += `<text x="${n.x}" y="${n.y + numSize*0.55 + nameSize + 5}" text-anchor="middle" font-size="${areaSize}" fill="#8A93A3">${n.area} m²</text>`;
   });
   s += `</g>`;
   return s;
@@ -593,7 +617,8 @@ function renderGrid(){
 function renderDetail(){
   const c = currentConfigs[selectedIndex];
   if(!c) return;
-  document.getElementById('mainSvg').innerHTML = svgFor(c.result);
+  document.getElementById('mainSvg').innerHTML = `<g id="zoomG">${svgFor(c.result)}</g>`;
+  applyZoomTransform();
   document.getElementById('scoreLabel').textContent = `Variante ${selectedIndex+1} · ${Math.round(c.score*100)}% de adyacencias satisfechas`;
 }
 
@@ -657,7 +682,7 @@ function matrixLayout(nodeList, rowH){
 function drawRowLabels(L){
   let s='';
   L.rows.forEach(r=>{
-    s += `<text class="row-index" x="4" y="${r.y+3}">${String(r.idx+1).padStart(2,'0')}</text>`;
+    s += `<text class="row-index" x="4" y="${r.y+3}">${String(r.num!=null ? r.num : r.idx+1).padStart(2,'0')}</text>`;
     s += `<text class="row-label" x="30" y="${r.y+3}">${r.id}</text>`;
   });
   return s;
@@ -842,14 +867,16 @@ function refreshMatricesIfVisible(){
 }
 
 /* =========================================================================
-   5) TABLAS EDITABLES
+   5) TABLAS EDITABLES (MODIFICADO: la tabla de Nodos ahora incluye la
+      columna inicial "#" con el ID numérico persistente de cada espacio)
    ========================================================================= */
 function renderTables(){
   const tb = document.querySelector('#tblNodos tbody');
   tb.innerHTML='';
   nodes.forEach((n,i)=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td><input value="${n.id}" data-i="${i}" data-f="id"></td>
+    tr.innerHTML = `<td class="idx-num">${n.num}</td>
+      <td><input value="${n.id}" data-i="${i}" data-f="id"></td>
       <td class="num"><input type="number" step="0.5" value="${n.area}" data-i="${i}" data-f="area"></td>
       <td><select data-i="${i}" data-f="planta">
         ${plantas.map(p=>`<option ${n.planta===p?'selected':''}>${p}</option>`).join('')}
@@ -860,10 +887,10 @@ function renderTables(){
   tb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, f=e.target.dataset.f;
     nodes[i][f] = f==='area' ? parseFloat(e.target.value)||0 : e.target.value;
-    refreshMatricesIfVisible();
+    autoGenerate();
   });
   tb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
-    nodes.splice(+e.target.dataset.del,1); renderTables(); refreshMatricesIfVisible();
+    nodes.splice(+e.target.dataset.del,1); renderTables(); autoGenerate();
   });
 
   const teb = document.querySelector('#tblEdges tbody');
@@ -883,16 +910,17 @@ function renderTables(){
   teb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, f=e.target.dataset.f;
     edges[i][f] = e.target.value;
-    refreshMatricesIfVisible();
+    autoGenerate();
   });
   teb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
-    edges.splice(+e.target.dataset.del,1); renderTables(); refreshMatricesIfVisible();
+    edges.splice(+e.target.dataset.del,1); renderTables(); autoGenerate();
   });
 }
 
 /* =========================================================================
    6) EXPORT — el JSON queda listo para leerse desde un componente Python
-      en Grasshopper en la siguiente etapa del workflow.
+      en Grasshopper en la siguiente etapa del workflow. El campo n.num de
+      cada nodo viaja automáticamente dentro de nodes[] al serializar.
    ========================================================================= */
 function currentPayload(){
   const c = currentConfigs[selectedIndex];
@@ -908,7 +936,7 @@ function currentPayload(){
     variante: c ? {
       index: selectedIndex+1,
       cumplimiento: c.score,
-      nodes: c.result.nodes.map(n=>({id:n.id, area:n.area, planta:n.planta, x:Math.round(n.x), y:Math.round(n.y)}))
+      nodes: c.result.nodes.map(n=>({id:n.id, num:n.num, area:n.area, planta:n.planta, x:Math.round(n.x), y:Math.round(n.y)}))
     } : null,
     savedAt: new Date().toISOString()
   };
@@ -1013,18 +1041,17 @@ function svgTrueScaleBubbles(scaleE, layout){
     const gR = 1.4; // mismo tamaño relativo que el ícono de la leyenda, fijo
     s += `<circle cx="${mx}" cy="${my}" r="${gR+0.4}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR)}`;
   });
-  layout.pts.forEach((p,pi)=>{
-    const idx = String(pi+1).padStart(2,'0');
+  layout.pts.forEach((p)=>{
     const r = p.r*mmPerUnit, cx=tx(p), cy=ty(p);
     const ring = plantaColor(p.planta);
     s += `<circle cx="${cx}" cy="${cy}" r="${r+0.9}" fill="none" stroke="${ring}" stroke-width="0.9"/>`;
     s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="0.25"/>`;
     if(r > 9){
-      s += `<text x="${cx}" y="${cy-r+2.6}" text-anchor="middle" font-size="1.9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#8A93A3">${idx}</text>`;
+      s += `<text x="${cx}" y="${cy-r+2.6}" text-anchor="middle" font-size="1.9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#8A93A3">${p.num}</text>`;
       s += `<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="${Math.min(3.2,r/3)}" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="600" fill="#17233B">${p.id}</text>`;
       s += `<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="2.4" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771">${p.area} m²</text>`;
     } else {
-      s += `<text x="${cx}" y="${cy-r-1.8}" text-anchor="middle" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#17233B">${idx}</text>`;
+      s += `<text x="${cx}" y="${cy-r-1.8}" text-anchor="middle" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#17233B">${p.num}</text>`;
     }
   });
   s += `</svg>`;
@@ -1055,7 +1082,7 @@ function exportBubblePDF(){
   const elaboro = document.getElementById('fElaboro').value || '';
 
   const layout = buildTrueScaleLayout(c.result);
-  const scaleE = chooseScale(layout.bboxW, layout.bboxH, layout.kScale, 195, 152);
+  const scaleE = chooseScale(layout.bboxW, layout.bboxH, layout.kScale, 190, 148);
   const svgMarkup = svgTrueScaleBubbles(scaleE, layout);
   const totalArea = nodes.reduce((a,n)=>a+n.area,0);
 
@@ -1096,6 +1123,37 @@ function exportBubblePDF(){
   window.print();
 }
 
+function escapeDxfText(s){ return String(s).replace(/[\n\r]/g,' '); }
+
+function exportBubbleDXF(){
+  const c = currentConfigs[selectedIndex];
+  if(!c) return;
+  const layout = buildTrueScaleLayout(c.result);
+  const k = 1000/(Math.sqrt(Math.PI)*layout.kScale); // mm por unidad, escala real 1:1
+  const bboxHmm = layout.bboxH*k;
+  const tx = p => (p.x-layout.minX)*k;
+  const ty = p => bboxHmm - (p.y-layout.minY)*k; // DXF: eje Y hacia arriba
+
+  let dxf = '0\nSECTION\n2\nENTITIES\n';
+  layout.edges.forEach(e=>{
+    const a = layout.pts.find(n=>n.id===(e.source.id||e.source));
+    const b = layout.pts.find(n=>n.id===(e.target.id||e.target));
+    if(!a||!b) return;
+    dxf += `0\nLINE\n8\nADYACENCIAS\n10\n${tx(a).toFixed(2)}\n20\n${ty(a).toFixed(2)}\n11\n${tx(b).toFixed(2)}\n21\n${ty(b).toFixed(2)}\n`;
+  });
+  layout.pts.forEach(p=>{
+    const cx=tx(p), cy=ty(p), r=p.r*k;
+    dxf += `0\nCIRCLE\n8\nESPACIOS\n10\n${cx.toFixed(2)}\n20\n${cy.toFixed(2)}\n40\n${r.toFixed(2)}\n`;
+    const h = Math.max(30, r*0.5);
+    dxf += `0\nTEXT\n8\nTEXTOS\n10\n${(cx-h*0.3).toFixed(2)}\n20\n${(cy+h*0.1).toFixed(2)}\n40\n${h.toFixed(2)}\n1\n${p.num}\n`;
+    dxf += `0\nTEXT\n8\nTEXTOS\n10\n${(cx-r*0.8).toFixed(2)}\n20\n${(cy-h*0.6).toFixed(2)}\n40\n${(h*0.35).toFixed(2)}\n1\n${escapeDxfText(p.id)}\n`;
+    dxf += `0\nTEXT\n8\nTEXTOS\n10\n${(cx-r*0.5).toFixed(2)}\n20\n${(cy-h*1.1).toFixed(2)}\n40\n${(h*0.3).toFixed(2)}\n1\n${p.area} m2\n`;
+  });
+  dxf += '0\nENDSEC\n0\nEOF\n';
+  const slug = slugify(document.getElementById('fProyecto').value || 'burbujas');
+  download(`${slug}_burbujas_v${selectedIndex+1}.dxf`, dxf, 'application/dxf');
+}
+
 /* -- tabla de áreas: mismo formato que la lámina de oficina (índice en
       itálica, agrupado por planta, subtotal y TOTAL general) -- */
 function buildAreasTableHtml(){
@@ -1107,7 +1165,7 @@ function buildAreasTableHtml(){
     html += `<table class="areas-table">
       <thead><tr><th colspan="2">Planta ${g.p}</th><th>m²</th></tr></thead>
       <tbody>
-        ${g.items.map((n,i)=>`<tr><td class="idx">${String(i+1).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td></tr>`).join('')}
+        ${g.items.map(n=>`<tr><td class="idx">${String(n.num).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td></tr>`).join('')}
         <tr class="subtotal"><td colspan="2">Subtotal</td><td class="num">${subtotal.toFixed(1)} m²</td></tr>
       </tbody>
     </table>`;
@@ -1138,6 +1196,157 @@ window.addEventListener('afterprint', ()=>{
 });
 
 /* =========================================================================
+   6b) IMPORTADOR DE EXCEL — lee las 4 hojas (TABLA-AREAS, MATRIZ-DM/RF/IR)
+       tal como las exporta Google Sheets/Excel del estudio. Convención de
+       la matriz triangular: en la fila del espacio local i, la columna C
+       es la relación con el espacio (i+1), D con (i+2), etc. — la misma
+       convención que ya usa matrixLayout() para dibujar en pantalla.
+       Bloques cuya etiqueta contiene "Cuadro" (resumen de áreas) o
+       "Completo" (relaciones entre pisos, no soportado en esta versión)
+       se omiten.
+   ========================================================================= */
+function sheetToAOA(wb, nameFragment){
+  const name = wb.SheetNames.find(n => n.toUpperCase().includes(nameFragment));
+  if(!name) return null;
+  return XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, defval:null});
+}
+
+function isLetterHeaderRow(row){
+  const a = row[0], b = row[1];
+  return typeof a === 'string' && a.trim().length <= 2 && a.trim() === a.trim().toUpperCase() && b;
+}
+
+function parseAreaBlocks(aoa){
+  const blocks = [];
+  for(let i=0;i<aoa.length;i++){
+    const row = aoa[i] || [];
+    if(!isLetterHeaderRow(row)) continue;
+    const label = String(row[1]).split('(')[0].trim();
+    if(/cuadro/i.test(label)) continue;
+    const items = [];
+    for(let j=i+1;j<aoa.length;j++){
+      const r = aoa[j] || [];
+      if(r[0]==null && r[1]==null) break;
+      if(typeof r[1]==='string' && r[1].trim().toUpperCase()==='TOTAL') break;
+      if(typeof r[0]==='number' && r[1]!=null){
+        items.push({localIndex:r[0], name:String(r[1]).trim(), area:Number(r[2])||0});
+      }
+    }
+    blocks.push({label, items});
+  }
+  return blocks;
+}
+
+function parseMatrixBlocks(aoa){
+  const blocks = [];
+  for(let i=0;i<aoa.length;i++){
+    const row = aoa[i] || [];
+    if(!isLetterHeaderRow(row)) continue;
+    const label = String(row[1]).trim();
+    if(/completo/i.test(label)) continue;
+    const items = [];
+    for(let j=i+1;j<aoa.length;j++){
+      const r = aoa[j] || [];
+      if(r[0]==null && r[1]==null) break;
+      if(typeof r[0]==='number' && r[1]!=null){
+        items.push({localIndex:r[0], name:String(r[1]).trim(), values:r.slice(2)});
+      }
+    }
+    blocks.push({label, items});
+  }
+  return blocks;
+}
+
+const RF_GLYPH_MAP = {'⬡':'contencion-abierta','⬢':'contencion-cerrada','△':'contiguo-abierta','▲':'contiguo-cerrada','◾':'neutro','⭘':'separacion-barrera','⬤':'separacion-locacion'};
+function mapFisicaCell(v){
+  if(v==null || String(v).trim()==='') return null;
+  return RF_GLYPH_MAP[String(v).trim()] || 'por-decidir';
+}
+const IR_ORDER = ['mandatoria','deseable','neutral','negativa','por-decidir'];
+function mapImportanciaCell(v){
+  if(v==null || String(v).trim()==='') return null;
+  if(typeof v === 'number') return IR_ORDER[Math.min(Math.max(Math.round(v)-1,0),4)];
+  const s = String(v).toLowerCase();
+  if(s.includes('mandat')) return 'mandatoria';
+  if(s.includes('desea')) return 'deseable';
+  if(s.includes('neutral')) return 'neutral';
+  if(s.includes('negativ')) return 'negativa';
+  return 'por-decidir';
+}
+
+function importFromWorkbook(wb){
+  const aoaAreas = sheetToAOA(wb,'AREAS');
+  if(!aoaAreas){ alert('No se encontró la hoja de Tabla de Áreas'); return; }
+  const aoaDM = sheetToAOA(wb,'-DM') || sheetToAOA(wb,'MOTIVOS');
+  const aoaRF = sheetToAOA(wb,'-RF') || sheetToAOA(wb,'FISICA');
+  const aoaIR = sheetToAOA(wb,'-IR') || sheetToAOA(wb,'IMPORTANCIA');
+
+  const areaBlocks = parseAreaBlocks(aoaAreas);
+  plantas = areaBlocks.map(b=>b.label);
+  plantaColors = {};
+  areaBlocks.forEach((b,i)=>{ plantaColors[b.label] = PLANTA_PALETTE[i % PLANTA_PALETTE.length]; });
+
+  nodes = [];
+  const lookup = {};
+  let num = 1;
+  areaBlocks.forEach(b=>{
+    b.items.forEach(it=>{
+      const node = {id:it.name, area:it.area, planta:b.label, num:num++};
+      nodes.push(node);
+      lookup[b.label+'|'+it.localIndex] = node;
+    });
+  });
+  nextNodeId = num;
+
+  const dmBlocks = aoaDM ? parseMatrixBlocks(aoaDM) : [];
+  const rfByLabel = Object.fromEntries((aoaRF ? parseMatrixBlocks(aoaRF) : []).map(b=>[b.label,b]));
+  const irByLabel = Object.fromEntries((aoaIR ? parseMatrixBlocks(aoaIR) : []).map(b=>[b.label,b]));
+
+  edges = [];
+  let motivoMax = 0;
+  dmBlocks.forEach(dmBlock=>{
+    const rfBlock = rfByLabel[dmBlock.label];
+    const irBlock = irByLabel[dmBlock.label];
+    dmBlock.items.forEach((item, idx)=>{
+      const rfItem = rfBlock && rfBlock.items[idx];
+      const irItem = irBlock && irBlock.items[idx];
+      item.values.forEach((dmVal, k)=>{
+        const rfVal = rfItem ? rfItem.values[k] : null;
+        const irVal = irItem ? irItem.values[k] : null;
+        if(dmVal==null && rfVal==null && irVal==null) return;
+        const a = lookup[dmBlock.label+'|'+item.localIndex];
+        const b2 = lookup[dmBlock.label+'|'+(item.localIndex + k + 1)];
+        if(!a || !b2) return;
+        let motivo = '';
+        if(dmVal!=null){ const n=Number(dmVal); motivo='Motivo '+n; if(n>motivoMax) motivoMax=n; }
+        edges.push({
+          source: a.id, target: b2.id, motivo,
+          fisica: mapFisicaCell(rfVal) || 'por-decidir',
+          importancia: mapImportanciaCell(irVal) || 'por-decidir'
+        });
+      });
+    });
+  });
+
+  const lines = []; for(let n=1;n<=motivoMax;n++) lines.push(n+'. Motivo '+n);
+  document.getElementById('fMotivos').value = lines.join('\n');
+
+  renderPlantaChips();
+  renderTables();
+  autoGenerate();
+}
+
+document.getElementById('btnImportExcel').onclick = ()=> document.getElementById('fileExcel').click();
+document.getElementById('fileExcel').onchange = async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  importFromWorkbook(wb);
+  e.target.value = '';
+};
+
+/* =========================================================================
    7) CONTROLES
    ========================================================================= */
 function autoGenerate(){
@@ -1150,7 +1359,6 @@ function autoGenerate(){
   refreshMatricesIfVisible();
 }
 
-document.getElementById('btnEjemplo').onclick = ejemplo;
 document.getElementById('btnAddPlanta').onclick = ()=>{
   const input = document.getElementById('newPlantaName');
   const name = input.value.trim();
@@ -1164,14 +1372,16 @@ document.getElementById('btnAddPlanta').onclick = ()=>{
 document.getElementById('btnGenerar').onclick = ()=>{ autoGenerate(); };
 document.getElementById('btnExportJSON').onclick = exportJSON;
 document.getElementById('btnExportSVG').onclick = exportSVG;
+document.getElementById('btnExportDXF').onclick = exportBubbleDXF;
 document.getElementById('btnExportBubblePDF').onclick = exportBubblePDF;
 document.getElementById('btnExportAreasPDF').onclick = exportAreasPDF;
 document.getElementById('btnExportMatricesPDF').onclick = exportMatricesPDF;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
-  if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0]});
+  // MODIFICADO — el nuevo espacio recibe el siguiente ID numérico único
+  if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], num:nextNodeId++});
   else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});
   renderTables();
-  refreshMatricesIfVisible();
+  autoGenerate();
 });
 ['rNumConfigs','rCharge'].forEach(id=>{
   const el = document.getElementById(id);
@@ -1298,7 +1508,15 @@ async function ghLoadEstudio(){
     document.getElementById('fMotivos').value = payload.motivos || '';
     plantas = payload.plantas && payload.plantas.length ? payload.plantas : ['Baja','Alta'];
     plantaColors = payload.plantaColors || {};
-    nodes = payload.nodes || [];
+    // MODIFICADO — normaliza estudios guardados antes de esta Fase 1 (sin `num`)
+    // y recalcula el contador de IDs para que los próximos espacios no choquen.
+    let maxNum = 0;
+    nodes = (payload.nodes || []).map((n,i)=>{
+      const num = (n.num != null) ? n.num : (i+1);
+      if(num > maxNum) maxNum = num;
+      return {...n, num};
+    });
+    nextNodeId = maxNum + 1;
     edges = payload.edges || [];
     renderPlantaChips();
     renderTables();
@@ -1314,8 +1532,79 @@ document.getElementById('btnGhRefresh').onclick = ghRefreshList;
 document.getElementById('btnGhLoad').onclick = ghLoadEstudio;
 loadGhConfigFromStorage();
 
+/* =========================================================================
+   9) PANEL LATERAL REDIMENSIONABLE
+   ========================================================================= */
+(function(){
+  const resizer = document.getElementById('resizer');
+  const root = document.documentElement;
+  let dragging = false;
+  resizer.addEventListener('mousedown', e=>{
+    dragging = true;
+    resizer.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const w = Math.min(Math.max(e.clientX, 260), window.innerWidth*0.75);
+    root.style.setProperty('--aside-w', w+'px');
+  });
+  window.addEventListener('mouseup', ()=>{
+    if(!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.userSelect = '';
+  });
+})();
+
+/* =========================================================================
+   10) ZOOM / PAN del diagrama de burbujas seleccionado
+   ========================================================================= */
+(function(){
+  const svg = document.getElementById('mainSvg');
+  let scale=1, panX=0, panY=0, panning=false, lastX=0, lastY=0;
+
+  window.applyZoomTransform = function(){
+    const g = document.getElementById('zoomG');
+    if(g) g.setAttribute('transform', `translate(${panX},${panY}) scale(${scale})`);
+  };
+  function zoomBy(factor, cx, cy){
+    const ns = Math.min(Math.max(scale*factor, 0.3), 8);
+    panX = cx - (cx-panX)*(ns/scale);
+    panY = cy - (cy-panY)*(ns/scale);
+    scale = ns;
+    applyZoomTransform();
+  }
+  function svgPoint(clientX, clientY){
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+  svg.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const p = svgPoint(e.clientX, e.clientY);
+    zoomBy(e.deltaY < 0 ? 1.12 : 1/1.12, p.x, p.y);
+  }, {passive:false});
+  svg.addEventListener('mousedown', e=>{ panning=true; lastX=e.clientX; lastY=e.clientY; svg.style.cursor='grabbing'; });
+  window.addEventListener('mousemove', e=>{
+    if(!panning) return;
+    const ctm = svg.getScreenCTM();
+    panX += (e.clientX-lastX)/ctm.a; panY += (e.clientY-lastY)/ctm.d;
+    lastX = e.clientX; lastY = e.clientY;
+    applyZoomTransform();
+  });
+  window.addEventListener('mouseup', ()=>{ panning=false; svg.style.cursor='grab'; });
+
+  document.getElementById('btnZoomIn').onclick = ()=> zoomBy(1.25, 360, 280);
+  document.getElementById('btnZoomOut').onclick = ()=> zoomBy(1/1.25, 360, 280);
+  document.getElementById('btnZoomReset').onclick = ()=>{ scale=1; panX=0; panY=0; applyZoomTransform(); };
+})();
+
 renderLegend();
-ejemplo();
+renderPlantaChips();
+renderTables();
+autoGenerate();
 </script>
 </body>
 </html>

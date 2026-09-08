@@ -229,6 +229,9 @@
     <div class="section-title">Simbología aplicada</div>
     <div class="legend-mini" id="legendMini"></div>
 
+    <div class="section-title">Estilo de líneas (por importancia)</div>
+    <div id="lineStyleControls"></div>
+
     <div class="section-title">Estudios (GitHub)<span></span></div>
     <div style="display:flex; flex-direction:column; gap:5px;">
       <input id="ghOwner" placeholder="usuario u organización">
@@ -736,6 +739,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
     const cx=n.x, cy=n.y;
     const Rext = extRadiusFor(n.area, kScale);
 
+    s += `<g class="node-drag" data-node-id="${encodeURIComponent(n.id)}" style="cursor:grab;">`;
     s += `<circle cx="${cx}" cy="${cy}" r="${Rext}" fill="none" stroke="#999" stroke-width="0.6" stroke-dasharray="0.1 2.5" stroke-linecap="round"/>`;
     s += `<circle cx="${cx}" cy="${cy}" r="${R0}" fill="#fff" stroke="#666666" stroke-width="1"/>`;
 
@@ -756,6 +760,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
       const areaY = startY + lines.length*lineH + nameSize*0.5;
       s += `<text x="${cx}" y="${areaY}" text-anchor="middle" font-size="${Math.max(4.5,nameSize*0.7)}" font-family="Arial, Inter, sans-serif" fill="#666666">${n.area} m²</text>`;
     }
+    s += `</g>`;
   });
 
   // ----- DIBUJAR ARISTAS (LÍNEAS Y GLIFOS) DESPUÉS -----
@@ -813,6 +818,26 @@ function renderDetail(){
   mainSvg.innerHTML = `<g id="zoomG">${svgFor(c.result)}</g>`;
   applyZoomTransform();
   label.textContent = `Variante ${selectedIndex+1} · ${Math.round(c.score*100)}% de adyacencias satisfechas · ${c.crossings===0?'sin cruces de línea':c.crossings+' cruce(s) de línea'}`;
+}
+
+// ----- NUEVA FUNCIÓN PARA CONTROLES DE ESTILO DE LÍNEAS -----
+function renderLineStyleControls(){
+  const el = document.getElementById('lineStyleControls');
+  el.innerHTML = Object.entries(IMPORTANCIA).map(([k,v])=>`
+    <div style="display:flex; align-items:center; gap:6px; margin-bottom:5px; font:11px var(--mono);">
+      <span style="flex:1; color:var(--ink-soft);">${v.label}</span>
+      <input type="number" step="0.5" min="0.5" value="${v.width}" data-style-k="${k}" data-style-f="width" style="width:40px; border:1px solid var(--border); padding:2px;" title="grosor">
+      <input type="text" value="${v.dash||''}" placeholder="sólida" data-style-k="${k}" data-style-f="dash" style="width:60px; border:1px solid var(--border); padding:2px;" title="dash SVG, ej. 4 2, vacío = sólida">
+    </div>
+  `).join('');
+  el.querySelectorAll('input').forEach(inp=>{
+    inp.onchange = ()=>{
+      const k = inp.dataset.styleK, f = inp.dataset.styleF;
+      if(f==='width') IMPORTANCIA[k].width = parseFloat(inp.value)||1;
+      else IMPORTANCIA[k].dash = inp.value.trim() || null;
+      renderGrid(); renderDetail(); renderLegend();
+    };
+  });
 }
 
 function renderLegend(){
@@ -1722,11 +1747,12 @@ loadGhConfigFromStorage();
 })();
 
 /* =========================================================================
-   10) ZOOM / PAN
+   10) ZOOM / PAN / DRAG DE NODOS
    ========================================================================= */
 (function(){
   const svg = document.getElementById('mainSvg');
   let scale=1, panX=0, panY=0, panning=false, lastX=0, lastY=0;
+  let dragNodeId=null, dragNodeEl=null, dragStartClientX=0, dragStartClientY=0, dragOrigX=0, dragOrigY=0;
 
   window.applyZoomTransform = function(){
     const g = document.getElementById('zoomG');
@@ -1749,15 +1775,54 @@ loadGhConfigFromStorage();
     const p = svgPoint(e.clientX, e.clientY);
     zoomBy(e.deltaY < 0 ? 1.12 : 1/1.12, p.x, p.y);
   }, {passive:false});
-  svg.addEventListener('mousedown', e=>{ panning=true; lastX=e.clientX; lastY=e.clientY; svg.style.cursor='grabbing'; });
+
+  svg.addEventListener('mousedown', e=>{
+    const g = e.target.closest('.node-drag');
+    if(g){
+      dragNodeEl = g;
+      dragNodeId = decodeURIComponent(g.dataset.nodeId);
+      const c = currentConfigs[selectedIndex];
+      const n = c && c.result.nodes.find(nd=>nd.id===dragNodeId);
+      dragOrigX = n ? n.x : 0;
+      dragOrigY = n ? n.y : 0;
+      dragStartClientX = e.clientX;
+      dragStartClientY = e.clientY;
+      g.style.cursor = 'grabbing';
+      e.stopPropagation();
+      return;
+    }
+    panning=true; lastX=e.clientX; lastY=e.clientY; svg.style.cursor='grabbing';
+  });
+
   window.addEventListener('mousemove', e=>{
+    if(dragNodeId){
+      const ctm = svg.getScreenCTM();
+      const dx = (e.clientX-dragStartClientX)/ctm.a/scale;
+      const dy = (e.clientY-dragStartClientY)/ctm.d/scale;
+      dragNodeEl.setAttribute('transform', `translate(${dx},${dy})`);
+      return;
+    }
     if(!panning) return;
     const ctm = svg.getScreenCTM();
     panX += (e.clientX-lastX)/ctm.a; panY += (e.clientY-lastY)/ctm.d;
     lastX = e.clientX; lastY = e.clientY;
     applyZoomTransform();
   });
-  window.addEventListener('mouseup', ()=>{ panning=false; svg.style.cursor='grab'; });
+
+  window.addEventListener('mouseup', e=>{
+    if(dragNodeId){
+      const ctm = svg.getScreenCTM();
+      const dx = (e.clientX-dragStartClientX)/ctm.a/scale;
+      const dy = (e.clientY-dragStartClientY)/ctm.d/scale;
+      const c = currentConfigs[selectedIndex];
+      const n = c && c.result.nodes.find(nd=>nd.id===dragNodeId);
+      if(n){ n.x = dragOrigX+dx; n.y = dragOrigY+dy; }
+      dragNodeId=null; dragNodeEl=null;
+      renderDetail();
+      return;
+    }
+    panning=false; svg.style.cursor='grab';
+  });
 
   document.getElementById('btnZoomIn').onclick = ()=> zoomBy(1.25, 720, 466);
   document.getElementById('btnZoomOut').onclick = ()=> zoomBy(1/1.25, 720, 466);
@@ -1769,6 +1834,7 @@ loadGhConfigFromStorage();
 // =========================================================================
 ejemplo();
 renderLegend();
+renderLineStyleControls();
 renderPlantaChips();
 renderTables();
 autoGenerate();

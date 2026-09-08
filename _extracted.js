@@ -1,308 +1,8 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Programa → Burbujas</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>
-  :root{
-    --paper:#EDEFF3;
-    --paper-line:#D7DCE3;
-    --panel:#F7F8FA;
-    --ink:#17233B;
-    --ink-soft:#4A5771;
-    --ink-faint:#8A93A3;
-    --baja:#B9862E;
-    --alta:#3E6E8E;
-    --negativa:#B5432E;
-    --border:#C7CEDA;
-    --mono:'Helvetica Neue',Helvetica,Arial,sans-serif;
-    --sans:'Helvetica Neue',Helvetica,Arial,sans-serif;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0;
-    background:
-      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/32px 32px,
-      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px) 0 0/32px 32px,
-      var(--paper);
-    color:var(--ink);
-    font-family:var(--sans);
-    min-height:100vh;
-  }
-  header{
-    display:flex; align-items:stretch; flex-wrap:wrap;
-    border-bottom:2px solid var(--ink);
-    background:var(--panel);
-  }
-  .tb-field{
-    padding:10px 18px; border-right:1px solid var(--border);
-    display:flex; flex-direction:column; justify-content:center; gap:2px;
-  }
-  .tb-field label{font:600 10px/1 var(--mono); letter-spacing:.08em; color:var(--ink-faint); text-transform:uppercase;}
-  .tb-field input, .tb-field select{
-    font:600 14px/1.2 var(--mono); color:var(--ink); border:none; background:transparent; padding:2px 0; width:100%;
-  }
-  .tb-field input:focus, .tb-field select:focus{outline:none; color:var(--negativa);}
-  .tb-spacer{flex:1;}
-  .tb-actions{display:flex; align-items:center; gap:8px; padding:10px 18px;}
-  button{
-    font:600 12px/1 var(--mono); letter-spacing:.04em; text-transform:uppercase;
-    padding:10px 14px; background:var(--ink); color:var(--panel); border:1px solid var(--ink);
-    cursor:pointer; transition:opacity .15s;
-  }
-  button.ghost{background:transparent; color:var(--ink); border:1px solid var(--border);}
-  button:hover{opacity:.82;}
-  button:active{opacity:.65;}
-  main{display:grid; grid-template-columns:var(--aside-w,340px) 6px 1fr; min-height:calc(100vh - 64px);}
-  @media (max-width:860px){ main{grid-template-columns:1fr;} #resizer{display:none;} }
-  #resizer{cursor:col-resize; background:var(--border); position:relative;}
-  #resizer:hover, #resizer.dragging{background:var(--ink-soft);}
-  aside{border-right:2px solid var(--ink); background:var(--panel); padding:16px; overflow:auto;}
-  .section-title{
-    font:700 11px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft);
-    margin:18px 0 8px; display:flex; align-items:center; justify-content:space-between;
-  }
-  .section-title:first-child{margin-top:0;}
-  table{width:100%; border-collapse:collapse; font:12px/1.3 var(--sans);}
-  th{font:600 10px/1 var(--mono); text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); text-align:left; padding:4px 3px; border-bottom:1px solid var(--border);}
-  td{padding:3px; border-bottom:1px solid #E3E6EC; vertical-align:middle;}
-  td input, td select{width:100%; font:12px var(--sans); border:1px solid transparent; background:transparent; padding:3px 2px; border-radius:2px;}
-  td input:focus, td select:focus{outline:none; border-color:var(--border); background:#fff;}
-  td.num input{width:44px;}
-  td.idx-num{
-    font:italic 11px var(--mono);
-    color:var(--ink-faint);
-    text-align:center;
-    width:26px;
-  }
-  .row-del{cursor:pointer; color:var(--ink-faint); font-family:var(--mono); font-size:14px; text-align:center;}
-  .row-del:hover{color:var(--negativa);}
-  .add-row{font:11px var(--mono); color:var(--ink-soft); background:none; border:1px dashed var(--border); width:100%; padding:6px; margin-top:6px; text-transform:none; letter-spacing:0;}
-  .legend-mini{font:11px var(--mono); color:var(--ink-soft); line-height:1.8; margin-top:6px;}
-  .legend-mini span.sw{display:inline-block; width:18px; height:0; border-top-width:2px; border-top-style:solid; margin-right:6px; vertical-align:middle;}
-  .viewer{display:flex; flex-direction:column;}
-  .view-tabs{display:flex; border-bottom:1px solid var(--border); background:var(--panel);}
-  .view-tabs button{
-    font:600 11px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase;
-    padding:12px 20px; background:transparent; color:var(--ink-soft);
-    border:none; border-right:1px solid var(--border); border-radius:0;
-  }
-  .view-tabs button.active{color:var(--ink); background:#fff; box-shadow:inset 0 -2px 0 var(--ink);}
-  .view-tabs button:hover{opacity:1; color:var(--ink);}
-  .view-pane{display:none;}
-  .view-pane.active{display:block;}
-  .toolbar{
-    display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--border);
-    background:var(--panel); flex-wrap:wrap;
-  }
-  .toolbar .field{display:flex; align-items:center; gap:6px; font:11px var(--mono); color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em;}
-  .toolbar input[type=range]{width:100px;}
-  .toolbar .val{width:24px; text-align:right; color:var(--ink);}
-  .grid-wrap{padding:18px; display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px;}
-  .card{
-    background:#fff; border:1px solid var(--border); cursor:pointer; position:relative;
-    transition:border-color .15s, transform .1s;
-  }
-  .card:hover{border-color:var(--ink-soft);}
-  .card.selected{border-color:var(--ink); border-width:2px; box-shadow:0 2px 0 var(--ink);}
-  .card svg{display:block; width:100%; height:170px;}
-  .card .meta{
-    display:flex; justify-content:space-between; padding:6px 8px; border-top:1px solid var(--border);
-    font:11px var(--mono); color:var(--ink-soft);
-  }
-  .card .meta b{color:var(--ink);}
-  .detail{padding:0 18px 24px;}
-  .detail-head{display:flex; justify-content:space-between; align-items:baseline; margin:6px 0 10px;}
-  .detail-head h2{font:600 15px var(--sans); margin:0;}
-  .detail-frame{background:#fff; border:1px solid var(--border);}
-  .detail-frame svg{display:block; width:100%; height:560px; cursor:grab; touch-action:none;}
-  .bubble-label{font:600 10.5px var(--sans); fill:var(--panel); text-anchor:middle; pointer-events:none;}
-  .bubble-area{font:9px var(--mono); fill:var(--panel); text-anchor:middle; opacity:.85; pointer-events:none;}
-  .matrix-grid{padding:18px; display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start;}
-  @media (max-width:1100px){ .matrix-grid{grid-template-columns:1fr;} }
-  .matrix-panel{background:#fff; border:1px solid var(--border); padding:16px; overflow:hidden;}
-  .matrix-panel.full{grid-column:1 / -1;}
-  .matrix-head{display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border);}
-  .matrix-head .t1{font:700 15px var(--sans); color:var(--ink); display:block;}
-  .matrix-head .t2{font:italic 12px var(--sans); color:var(--ink-soft); display:block;}
-  .mini-btn{font:600 9px/1 var(--mono); text-transform:uppercase; letter-spacing:.05em; padding:5px 9px; background:transparent; border:1px solid var(--border); color:var(--ink-soft); flex:none;}
-  .mini-btn:hover{border-color:var(--ink-soft); color:var(--ink);}
-  .matrix-body{display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start;}
-  .matrix-svg-wrap{overflow-x:auto; max-width:100%;}
-  .matrix-legend-list{font:11px var(--mono); color:var(--ink-soft); min-width:190px;}
-  .matrix-legend-list .lg-title{font:700 10px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--ink); margin-bottom:8px;}
-  .matrix-legend-list .lg-row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
-  .matrix-legend-list svg{flex:none;}
-  .motivo-list{font:11px var(--sans); color:var(--ink-soft); line-height:1.65; margin:0; padding-left:18px;}
-  .motivo-list li{margin-bottom:4px;}
-  .row-label{font-size:11px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; fill:#17233B;}
-  .row-index{font-size:10px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-style:italic; fill:#8A93A3;}
-  .empty-note{font:11px var(--mono); color:var(--ink-faint); padding:6px 0;}
-  .matrix-toolbar{display:flex; align-items:center; padding:12px 18px; border-bottom:1px solid var(--border); background:var(--panel);}
-  footer{padding:10px 18px; font:11px var(--mono); color:var(--ink-faint); border-top:1px solid var(--border);}
-  #printArea{display:none;}
-  .print-page{width:100%; height:190mm; max-height:190mm; padding:4mm 0; overflow:hidden; page-break-after:always; box-sizing:border-box; display:flex; flex-direction:column;}
-  .print-page:last-child{page-break-after:auto;}
-  .print-head{margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid #C7CEDA; flex:none;}
-  .print-head .t1{font:700 16px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#17233B; display:block;}
-  .print-head .t2{font:italic 11px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; display:block;}
-  .print-head .t3{font:9px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; margin-top:2px; display:block;}
-  .print-body{display:flex; gap:32px; align-items:flex-start; flex:1; min-height:0; overflow:hidden;}
-  .print-body-split{display:flex; gap:18px; align-items:stretch; flex:1; min-height:0; overflow:hidden;}
-  .print-diagram-col{flex:1; min-width:0; display:flex; align-items:center; justify-content:center; overflow:hidden;}
-  .print-side-col{width:250px; flex:none; display:flex; flex-direction:column; gap:7px; overflow:hidden;}
-  .legend-block{display:flex; flex-direction:column; gap:6px;}
-  .areas-table{width:250px; border-collapse:collapse; font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
-  .areas-table th{font:700 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:2px 4px; border-bottom:1.2px solid #17233B;}
-  .areas-table td{padding:1.6px 4px; border-bottom:1px solid #E3E6EC;}
-  .areas-table td.idx{font:italic 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; width:18px;}
-  .areas-table td.num{text-align:right; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
-  .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B; padding-top:2px;}
-  .areas-table tr.total td{font:700 10px 'Helvetica Neue',Helvetica,Arial,sans-serif; border-top:2px solid #17233B; padding-top:4px;}
-  .matrix-legend-list{font-size:8.5px;}
-  .matrix-legend-list .lg-title{margin-bottom:4px;}
-  .matrix-legend-list .lg-row{margin-bottom:2px; gap:5px;}
-  .print-foot{display:flex; gap:16px; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid #C7CEDA; width:100%; flex:none;}
-  .legend-2col{display:grid; grid-template-columns:1fr 1fr; column-gap:8px;}
-  .print-foot-text{font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.45;}
-  @media print{
-    body > *:not(#printArea){display:none !important;}
-    #printArea{display:block !important;}
-    @page{ size:landscape; margin:10mm; }
-  }
-</style>
-</head>
-<body>
 
-<header>
-  <div class="tb-field" style="min-width:220px;">
-    <label>Proyecto</label>
-    <input id="fProyecto" value="PROGRAMA 2 NIVELES">
-  </div>
-  <div class="tb-field" style="width:110px;">
-    <label>Fase</label>
-    <input id="fFase" value="01 — Burbujas">
-  </div>
-  <div class="tb-field" style="width:150px;">
-    <label>Elaboró</label>
-    <input id="fElaboro" value="">
-  </div>
-  <div class="tb-spacer"></div>
-  <div class="tb-actions">
-    <input type="file" id="fileExcel" accept=".xlsx" style="display:none;">
-    <button class="ghost" id="btnImportExcel">Importar Excel</button>
-    <button id="btnGenerar">Generar variantes</button>
-  </div>
-</header>
-
-<main>
-  <aside>
-    <div class="section-title">Plantas / Niveles<span></span></div>
-    <div id="plantaChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
-    <div style="display:flex; gap:6px; margin-bottom:4px;">
-      <input id="newPlantaName" placeholder="ej. Nivel 2" style="flex:1; font:12px var(--sans); border:1px solid var(--border); padding:5px 7px; background:#fff;">
-      <button class="ghost" id="btnAddPlanta" style="padding:6px 10px;">+ agregar</button>
-    </div>
-
-    <div class="section-title">Nodos (espacios)<span></span></div>
-    <table id="tblNodos">
-      <thead><tr><th>#</th><th>Espacio</th><th>m²</th><th>Planta</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button class="add-row" data-add="node">+ agregar espacio</button>
-
-    <div class="section-title">Relaciones (matrices)</div>
-    <table id="tblEdges">
-      <thead><tr><th>A</th><th>B</th><th>Motivo</th><th>Física</th><th>Importancia</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button class="add-row" data-add="edge">+ agregar relación</button>
-
-    <div class="section-title">Leyenda de motivos</div>
-    <textarea id="fMotivos" rows="4" placeholder="1. Acceso directo requerido&#10;2. Comparte instalación hidrosanitaria&#10;3. Ruido/vibración indeseable..."
-      style="width:100%; font:11px var(--mono); border:1px solid var(--border); padding:6px; resize:vertical; background:#fff;"></textarea>
-
-    <div class="section-title">Simbología aplicada</div>
-    <div class="legend-mini" id="legendMini"></div>
-
-    <div class="section-title">Estudios (GitHub)<span></span></div>
-    <div style="display:flex; flex-direction:column; gap:5px;">
-      <input id="ghOwner" placeholder="usuario u organización">
-      <input id="ghRepo" placeholder="repositorio">
-      <input id="ghToken" type="password" placeholder="token (fine-grained, solo este repo)">
-      <div style="display:flex; gap:6px;">
-        <button class="ghost" id="btnGhSave" style="flex:1;">Guardar estudio</button>
-        <button class="ghost" id="btnGhRefresh" style="flex:1;">Ver estudios</button>
-      </div>
-      <select id="ghList" size="4" style="font:11px var(--mono); border:1px solid var(--border); background:#fff;"></select>
-      <button class="ghost" id="btnGhLoad">Cargar seleccionado</button>
-      <div id="ghStatus" style="font:10px var(--mono); color:var(--ink-faint); min-height:14px;"></div>
-    </div>
-  </aside>
-
-  <div id="resizer"></div>
-
-  <div class="viewer">
-    <div class="view-tabs">
-      <button class="tab-btn active" data-view="burbujas" type="button">Burbujas</button>
-      <button class="tab-btn" data-view="matrices" type="button">Matrices</button>
-    </div>
-
-    <div class="view-pane active" id="paneBurbujas">
-      <div class="toolbar">
-        <div class="field">N.º variantes <input type="range" id="rNumConfigs" min="2" max="8" value="4"><span class="val" id="vNumConfigs">4</span></div>
-        <div class="field">Repulsión general <input type="range" id="rCharge" min="40" max="260" value="130"><span class="val" id="vCharge">130</span></div>
-        <div class="field">Etiqueta
-          <select id="rLabelMode">
-            <option value="nombre">Nombre completo</option>
-            <option value="numero">Número</option>
-          </select>
-        </div>
-        <div class="tb-spacer"></div>
-        <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
-        <button class="ghost" id="btnExportSVG">Exportar SVG</button>
-        <button class="ghost" id="btnExportDXF">Exportar DXF (CAD)</button>
-        <button class="ghost" id="btnExportBubblePDF">Exportar PDF</button>
-      </div>
-
-      <div class="grid-wrap" id="grid"></div>
-
-      <div class="detail">
-        <div class="detail-head">
-          <h2>Variante seleccionada</h2>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <button class="mini-btn" id="btnZoomOut" title="Alejar">−</button>
-            <button class="mini-btn" id="btnZoomReset" title="Restablecer zoom">100%</button>
-            <button class="mini-btn" id="btnZoomIn" title="Acercar">+</button>
-            <span id="scoreLabel" style="font:11px var(--mono); color:var(--ink-soft);"></span>
-          </div>
-        </div>
-        <div class="detail-frame"><svg id="mainSvg" viewBox="0 0 1440 932"></svg></div>
-      </div>
-    </div>
-
-    <div class="view-pane" id="paneMatrices">
-      <div class="matrix-toolbar">
-        <div class="tb-spacer"></div>
-        <button class="ghost" id="btnExportAreasPDF">Exportar Tabla de Áreas (PDF)</button>
-        <button class="ghost" id="btnExportMatricesPDF">Exportar PDF (3 láminas)</button>
-      </div>
-      <div class="matrix-grid" id="matrixGrid"></div>
-    </div>
-  </div>
-</main>
-
-<div id="printArea"></div>
-
-<footer>matrices → grafo de relaciones → simulación force-directed (d3-force) → N configuraciones filtradas por cumplimiento de adyacencias → export JSON para masa 3D en Rhino/Grasshopper</footer>
-
-<script>
 /* =========================================================================
-   1) SIMBOLOGÍA — tabla única de traducción.
+   1) SIMBOLOGÍA — tabla única de traducción. Ajusten estos valores según
+      como definan la simbología real del estudio; todo lo demás del motor
+      de layout depende solo de estos tres diccionarios.
    ========================================================================= */
 const FISICA = {
   'contencion-cerrada': {label:'Contención cerrada', distance:14},
@@ -322,7 +22,13 @@ const IMPORTANCIA = {
   'por-decidir': {label:'Por decidir', strength:0.1,  width:1, dash:'0.1 3.5',       color:'var(--ink-faint)'},
 };
 const PLANTA_COLOR = { baja: 'var(--baja)', alta: 'var(--alta)' };
+
+/* escalas arquitectónicas estándar disponibles para el pie de plano */
 const STANDARD_SCALES = [50,75,100,125,150,200,250,300,400,500,750,1000];
+
+/* colores planos para la vista de Matrices (rombos rellenos: no pueden usar
+   var(--x) porque el navegador no las resuelve dentro de un string SVG
+   generado por template literal en algunos exportadores) */
 const MATRIZ_COLOR = {
   mandatoria:   '#2F6D9C',
   deseable:     '#E08A2B',
@@ -330,6 +36,8 @@ const MATRIZ_COLOR = {
   negativa:     '#B5432E',
   'por-decidir': null
 };
+
+/* paleta rotativa para distinguir plantas/niveles (ya no solo baja/alta) */
 const PLANTA_PALETTE = ['#B9862E','#3E6E8E','#6E8E3E','#8E3E6E','#3E8E86','#8E6B3E','#5B4E8E'];
 let plantaColors = {};
 function plantaColor(planta){
@@ -339,12 +47,15 @@ function plantaColor(planta){
 }
 
 /* =========================================================================
-   2) DATOS
+   2) DATOS — estructura mínima. Reemplacen cargarEjemplo() por su propio
+      parser del export de Google Sheets cuando definan el formato final
+      (misma forma de objeto: nodes[] y edges[]). IMPORTANTE: cada nodo debe
+      incluir el campo numérico `num` (ID único e incremental, ver punto 5).
    ========================================================================= */
 let nodes = [];
 let edges = [];
 let plantas = ['Baja','Alta'];
-let nextNodeId = 1;
+let nextNodeId = 1; // NUEVO — contador de IDs numéricos, nunca se reutiliza
 
 function renderPlantaChips(){
   const el = document.getElementById('plantaChips');
@@ -395,6 +106,7 @@ function ejemplo(){
     {id:'Vestidor', area:6, planta:'Alta'},
     {id:'Baño principal', area:8.5, planta:'Alta'},
   ];
+  // NUEVO — asigna el ID numérico persistente en el orden de creación
   nodes = nodes.map((n,i)=>({...n, num:i+1}));
   nextNodeId = nodes.length + 1;
 
@@ -427,7 +139,7 @@ function ejemplo(){
 }
 
 /* =========================================================================
-   3) MOTOR DE LAYOUT — PARÁMETROS AJUSTADOS
+   3) MOTOR DE LAYOUT — d3-force con parámetros derivados de la simbología
    ========================================================================= */
 function mulberry32(seed){
   return function(){
@@ -438,20 +150,42 @@ function mulberry32(seed){
   };
 }
 
+/* CORREGIDO — el radio es puramente el que hace que el ÁREA del círculo
+   (π·r²) sea proporcional al área real en m² del espacio, sin piso mínimo
+   de legibilidad. Aplicado tras el ajuste a la hoja tabloide. */
 function radiusFor(area, kScale){ return Math.sqrt(area) * kScale; }
 
-const TABLO_W  = 1440;
-const TABLO_H  = 932;
-const TABLO_PAD = 30;
-const SMACOF_ITERS = 200;       // más iteraciones para mejor convergencia
-const COLLIDE_ITERS = 300;      // más iteraciones para separación suave
+/* =========================================================================
+   MOTOR DE LAYOUT — acomodo MATEMÁTICO gobernado por la matriz de distancias
+   objetivo (escalamiento multidimensional, SMACOF):
+
+     1. MaTRIZ OBJETIVO  D[i][j]  ←  FISICA[d.fisica].distance
+        (un mismo espacio "contenido" busca D≈14, "contiguo" ≈58/84,
+         "neutro"≈150, "separado"≈230/360). Los pares sin relación usan
+         una distancia base ~95 (≠ la "repulsión general" con el slider).
+     2. SMACOF — minimiza el estrés:  Σ w_ij·(‖x_i−x_j‖ − D_ij)²
+        La posición de cada burbuja se itera según la suma ponderada de
+        las demás ("Guttman transform"), de modo que la distancia REAL en
+        el plano queda dictada por la simbología, no por el azar.
+     3. COLISIÓN circular: con r = √área·k los discos no pueden
+        superponerse; se separan físicamente (como si fueran sólidos).
+     4. ENMARCADO TABLOIDE: todo el conjunto (posiciones + radios) se
+        escala homotéticamente y se centra en la ventana TABLOIDE
+        (11×17″ → 1440×932 px en pantalla, proporción 1.545:1).
+   ========================================================================= */
+const TABLO_W  = 1440;                              // tabloide horizontal 17″
+const TABLO_H  = 932;                               // 11″ → proporción 1.5455
+const TABLO_PAD = 30;                               // margen interior
+const SMACOF_ITERS = 140;                           // iteraciones de convergencia
+const COLLIDE_ITERS = 220;                           // iteraciones anti-solape
 
 function runSMACOF(simNodes, allEdges, rnd, chargeStrength){
   const n = simNodes.length;
   if(n===0) return;
   const idx = new Map(simNodes.map((nd,i)=>[nd.id,i]));
 
-  const baseD = Math.min(210, Math.max(55, 110*(chargeStrength/130)));
+  // distancia base para pares sin relación (slider "Repulsión general" = 40..260)
+  const baseD = Math.min(210, Math.max(55, 110*(charge/130)));
   const baseW = 1/(baseD*baseD) * 0.10;
 
   const D  = Array.from({length:n},()=>Array(n).fill(0));
@@ -471,6 +205,7 @@ function runSMACOF(simNodes, allEdges, rnd, chargeStrength){
     W_[i][j]=W_[j][i]=w;
   });
 
+  // posición inicial agrupada por planta y repartida con la semilla
   const pos = simNodes.map(nd=>{
     const gi = Math.max(0, plantas.indexOf(nd.planta));
     return {
@@ -479,6 +214,8 @@ function runSMACOF(simNodes, allEdges, rnd, chargeStrength){
     };
   });
 
+  // SMACOF — iteraciones de Guttman (gradiente del estrés).
+  // x_i^{t+1} = Σ_j w_ij·( x_j + D_ij·(x_i−x_j)/‖x_i−x_j‖ ) / Σ_j w_ij
   for(let it=0; it<SMACOF_ITERS; it++){
     const damping = it<30 ? 0.5 : 0.9;
     for(let i=0;i<n;i++){
@@ -504,6 +241,7 @@ function runSMACOF(simNodes, allEdges, rnd, chargeStrength){
   simNodes.forEach((nd,i)=>{ nd.x=pos[i].x; nd.y=pos[i].y; });
 }
 
+/* separación física de discos (colisión) y encuadre en página tabloide */
 function applyCollisionsAndTabloid(simNodes, kScale){
   const n = simNodes.length;
   const rs = simNodes.map(nd=>Math.sqrt(nd.area)*kScale);
@@ -513,7 +251,7 @@ function applyCollisionsAndTabloid(simNodes, kScale){
       for(let j=i+1;j<n;j++){
         const dx=simNodes[j].x-simNodes[i].x, dy=simNodes[j].y-simNodes[i].y;
         const dist=Math.sqrt(dx*dx+dy*dy)||1e-6;
-        const minDist=(rs[i]+rs[j])*1.10;  // separación más generosa
+        const minDist=(rs[i]+rs[j])*1.06;
         if(dist<minDist){
           const push=(minDist-dist)/dist*0.5;
           simNodes[i].x -= dx*push; simNodes[i].y -= dy*push;
@@ -536,16 +274,22 @@ function applyCollisionsAndTabloid(simNodes, kScale){
   });
 }
 
+/* CORREGIDO — constructor de una variante completa (SMACOF → colisión → tabloide) */
 function buildSimulation(seedIndex, charge, W, H){
   const rnd = mulberry32(1000 + seedIndex*97);
   const simNodes = nodes.map(n=>({...n}));
   runSMACOF(simNodes, edges, rnd, charge);
-  const kScale = 2.8;   // escala reducida para que los círculos sean más compactos
+  const kScale = 3.6;
   applyCollisionsAndTabloid(simNodes, kScale);
   const linkEdges = (edges||[]).map(e=>({...e}));
   return {nodes: simNodes, edges: linkEdges, kScale};
 }
 
+/* NUEVO — cuenta cruces reales entre segmentos de línea (adyacencias).
+   El diagrama de burbujas solo puede quedar 100% libre de cruces si el
+   grafo de relaciones es planar; cuando no lo es, esto elige, de entre
+   muchos intentos aleatorios, la disposición con el MENOR número de
+   cruces posible (y 0 si el grafo lo permite). */
 function segmentsIntersect(p1,p2,p3,p4){
   function ccw(a,b,c){ return (c.y-a.y)*(b.x-a.x) - (b.y-a.y)*(c.x-a.x); }
   const d1=ccw(p3,p4,p1), d2=ccw(p3,p4,p2), d3_=ccw(p1,p2,p3), d4=ccw(p1,p2,p4);
@@ -563,7 +307,7 @@ function countCrossings(result){
   for(let i=0;i<segs.length;i++){
     for(let j=i+1;j<segs.length;j++){
       const [a1,a2]=segs[i], [b1,b2]=segs[j];
-      if(a1===b1||a1===b2||a2===b1||a2===b2) continue;
+      if(a1===b1||a1===b2||a2===b1||a2===b2) continue; // comparten nodo: no cuenta
       if(segmentsIntersect(a1,a2,b1,b2)) crossings++;
     }
   }
@@ -596,10 +340,13 @@ function signatureOf(result){
   }).sort().join('|');
 }
 
+/* MODIFICADO — genera más candidatos y ordena primero por MENOS cruces de
+   líneas y, como criterio de desempate, por mayor cumplimiento de
+   adyacencias. Así las variantes mostradas son las más "limpias" posibles. */
 function generateConfigs(count, chargeStrength){
   const W=1440,H=932;
   const candidates=[];
-  const tries = Math.max(count*20, 80);   // más intentos para encontrar variantes sin cruces
+  const tries = Math.max(count*10, 40);
   for(let i=0;i<tries;i++){
     const r = buildSimulation(i, chargeStrength, W, H);
     candidates.push({result:r, score:scoreLayout(r), crossings:countCrossings(r), sig:signatureOf(r), seed:i});
@@ -615,11 +362,14 @@ function generateConfigs(count, chargeStrength){
 }
 
 /* =========================================================================
-   4) RENDER — (resto del código idéntico al original)
+   4) RENDER — diagrama de burbujas (MODIFICADO: se reemplaza el índice de
+      posición por el ID numérico persistente n.num, mostrado en grande y
+      centrado, acompañado del nombre del espacio y su área en m² como
+      líneas secundarias que escalan según el radio del círculo)
    ========================================================================= */
 let currentConfigs = [];
 let selectedIndex = 0;
-let labelMode = 'nombre';
+let labelMode = 'nombre'; // 'nombre' = nombre completo del espacio · 'numero' = solo el # de nomenclatura
 
 function polarXY(cx,cy,r,ang){ return {x:cx+r*Math.cos(ang), y:cy+r*Math.sin(ang)}; }
 function arcD(cx,cy,r,a0,a1){
@@ -685,6 +435,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
     });
 
     if(labelMode === 'numero'){
+      // MODIFICADO — modo "Número": solo el ID numérico de nomenclatura, grande y centrado
       const numSize = Math.max(7, Math.min(28, R0*0.65));
       s += `<text x="${cx}" y="${cy+numSize*0.34}" text-anchor="middle" font-size="${numSize}" font-weight="700" font-family="Arial, Inter, sans-serif" fill="#A35C8F">${n.num}</text>`;
       const areaSize = Math.max(4.5, Math.min(10, R0*0.18));
@@ -709,10 +460,6 @@ function svgFor(result, W=1440, H=932, interactive=false){
 function renderGrid(){
   const grid = document.getElementById('grid');
   grid.innerHTML='';
-  if(!currentConfigs.length){
-    grid.innerHTML = '<div class="empty-note">Aún no hay variantes generadas. Agrega espacios o carga un estudio.</div>';
-    return;
-  }
   currentConfigs.forEach((c,i)=>{
     const card = document.createElement('div');
     card.className = 'card' + (i===selectedIndex?' selected':'');
@@ -725,16 +472,10 @@ function renderGrid(){
 
 function renderDetail(){
   const c = currentConfigs[selectedIndex];
-  const mainSvg = document.getElementById('mainSvg');
-  const label = document.getElementById('scoreLabel');
-  if(!c){
-    mainSvg.innerHTML = '';
-    label.textContent = 'Sin variantes generadas';
-    return;
-  }
-  mainSvg.innerHTML = `<g id="zoomG">${svgFor(c.result)}</g>`;
+  if(!c) return;
+  document.getElementById('mainSvg').innerHTML = `<g id="zoomG">${svgFor(c.result)}</g>`;
   applyZoomTransform();
-  label.textContent = `Variante ${selectedIndex+1} · ${Math.round(c.score*100)}% de adyacencias satisfechas · ${c.crossings===0?'sin cruces de línea':c.crossings+' cruce(s) de línea'}`;
+  document.getElementById('scoreLabel').textContent = `Variante ${selectedIndex+1} · ${Math.round(c.score*100)}% de adyacencias satisfechas · ${c.crossings===0?'sin cruces de línea':c.crossings+' cruce(s) de línea'}`;
 }
 
 function renderLegend(){
@@ -746,7 +487,11 @@ function renderLegend(){
 }
 
 /* =========================================================================
-   4b) MATRICES (resto del código idéntico al original)
+   4b) RENDER — vista de Matrices (Importancia Relativa / Relación Física /
+       Deseos y Motivos). Se dibuja como matriz triangular en rombos, igual
+       en lógica a las láminas AutoCAD del estudio: fila i vs fila j (j>i)
+       se ubica a la mitad de altura entre ambas filas, y se desplaza a la
+       derecha según cuántas filas de distancia hay entre ellas.
    ========================================================================= */
 function findEdge(a,b){
   return edges.find(e=>{
@@ -771,7 +516,7 @@ function glyphMarkup(key, cx, cy, r){
     case 'neutro':             return `<rect x="${cx-r*0.78}" y="${cy-r*0.78}" width="${r*1.56}" height="${r*1.56}" fill="#B9BEC7"/>`;
     case 'separacion-barrera': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="1.3" stroke-dasharray="0.1 3" stroke-linecap="round"/>`;
     case 'separacion-locacion':return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B" stroke="#fff" stroke-width="1.4"/>`;
-    default: return `<path d="${diamondPath(cx,cy,r)}" fill="none" stroke="#C7CEDA" stroke-width="1"/>`;
+    default: return `<path d="${diamondPath(cx,cy,r)}" fill="none" stroke="#C7CEDA" stroke-width="1"/>`; // por-decidir
   }
 }
 
@@ -838,6 +583,9 @@ function svgMatrixFisica(){
   return s;
 }
 
+/* -- leyenda de motivos: texto libre en la tabla de relaciones, número
+      autogenerado y sincronizado con el textarea "Leyenda de motivos"
+      (mismo formato de pie de lámina: "1. texto del motivo") -- */
 function parseMotivosLegend(){
   const raw = document.getElementById('fMotivos').value;
   const map = new Map();
@@ -975,7 +723,8 @@ function refreshMatricesIfVisible(){
 }
 
 /* =========================================================================
-   5) TABLAS EDITABLES (resto del código idéntico al original)
+   5) TABLAS EDITABLES (MODIFICADO: la tabla de Nodos ahora incluye la
+      columna inicial "#" con el ID numérico persistente de cada espacio)
    ========================================================================= */
 function renderTables(){
   const tb = document.querySelector('#tblNodos tbody');
@@ -1025,7 +774,9 @@ function renderTables(){
 }
 
 /* =========================================================================
-   6) EXPORT (resto del código idéntico al original)
+   6) EXPORT — el JSON queda listo para leerse desde un componente Python
+      en Grasshopper en la siguiente etapa del workflow. El campo n.num de
+      cada nodo viaja automáticamente dentro de nodes[] al serializar.
    ========================================================================= */
 function currentPayload(){
   const c = currentConfigs[selectedIndex];
@@ -1064,6 +815,9 @@ function download(filename, text, type){
   a.href = URL.createObjectURL(blob); a.download = filename; a.click();
 }
 
+/* -- export de las matrices: SVG individual (por panel) y PDF (las 3 juntas,
+      vía el diálogo "Guardar como PDF" de imprimir del navegador — sin
+      librerías externas, y con la misma tipografía/colores que en pantalla) -- */
 function exportSvgString(svgStr, filename){
   const withNs = svgStr.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
   download(filename, withNs, 'image/svg+xml');
@@ -1100,7 +854,15 @@ function exportMatricesPDF(){
 
   window.print();
 }
-
+/* -- diagrama de burbujas a escala arquitectónica real: el radio de cada
+      círculo se calcula con la fórmula real de área de un círculo
+      (r = √(área/π)), sin el "piso" de legibilidad que usa la vista en
+      pantalla. Como la posición on-screen ya es proporcional a √área con
+      el mismo factor (radiusFor = √área·kScale), existe un único factor
+      mm-por-unidad que hace que TODO el layout (posiciones y radios) se
+      vuelva físicamente exacto en la escala elegida — las distancias entre
+      espacios siguen siendo esquemáticas (como en cualquier diagrama de
+      burbujas), solo el tamaño de cada círculo queda acotado a escala. -- */
 function trueRadiusUnits(area, kScale){ return Math.sqrt(area) * kScale; }
 
 function buildTrueScaleLayout(result){
@@ -1112,7 +874,7 @@ function buildTrueScaleLayout(result){
 }
 
 function chooseScale(bboxWUnits, bboxHUnits, kScale, targetWmm, targetHmm){
-  const k = 1000/(Math.sqrt(Math.PI)*kScale);
+  const k = 1000/(Math.sqrt(Math.PI)*kScale); // mm por unidad, a escala 1:1
   const needed = Math.max(bboxWUnits/targetWmm, bboxHUnits/targetHmm) * k;
   for(const E of STANDARD_SCALES){ if(E >= needed) return E; }
   return STANDARD_SCALES[STANDARD_SCALES.length-1];
@@ -1133,7 +895,7 @@ function svgTrueScaleBubbles(scaleE, layout){
     const col = MATRIZ_COLOR[e.importancia] || '#C7CEDA';
     s += `<line x1="${tx(a)}" y1="${ty(a)}" x2="${tx(b)}" y2="${ty(b)}" stroke="${col}" stroke-width="${style.width*0.35}" stroke-linecap="round" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.9:0.75}"/>`;
     const mx=(tx(a)+tx(b))/2, my=(ty(a)+ty(b))/2;
-    const gR = 1.4;
+    const gR = 1.4; // mismo tamaño relativo que el ícono de la leyenda, fijo
     s += `<circle cx="${mx}" cy="${my}" r="${gR+0.4}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR)}`;
   });
   layout.pts.forEach((p)=>{
@@ -1224,10 +986,10 @@ function exportBubbleDXF(){
   const c = currentConfigs[selectedIndex];
   if(!c) return;
   const layout = buildTrueScaleLayout(c.result);
-  const k = 1000/(Math.sqrt(Math.PI)*layout.kScale);
+  const k = 1000/(Math.sqrt(Math.PI)*layout.kScale); // mm por unidad, escala real 1:1
   const bboxHmm = layout.bboxH*k;
   const tx = p => (p.x-layout.minX)*k;
-  const ty = p => bboxHmm - (p.y-layout.minY)*k;
+  const ty = p => bboxHmm - (p.y-layout.minY)*k; // DXF: eje Y hacia arriba
 
   let dxf = '0\nSECTION\n2\nENTITIES\n';
   layout.edges.forEach(e=>{
@@ -1249,6 +1011,8 @@ function exportBubbleDXF(){
   download(`${slug}_burbujas_v${selectedIndex+1}.dxf`, dxf, 'application/dxf');
 }
 
+/* -- tabla de áreas: mismo formato que la lámina de oficina (índice en
+      itálica, agrupado por planta, subtotal y TOTAL general) -- */
 function buildAreasTableHtml(){
   const groups = plantas.map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
   const totalGeneral = nodes.reduce((a,n)=>a+n.area,0);
@@ -1289,7 +1053,14 @@ window.addEventListener('afterprint', ()=>{
 });
 
 /* =========================================================================
-   6b) IMPORTADOR EXCEL (resto del código idéntico al original)
+   6b) IMPORTADOR DE EXCEL — lee las 4 hojas (TABLA-AREAS, MATRIZ-DM/RF/IR)
+       tal como las exporta Google Sheets/Excel del estudio. Convención de
+       la matriz triangular: en la fila del espacio local i, la columna C
+       es la relación con el espacio (i+1), D con (i+2), etc. — la misma
+       convención que ya usa matrixLayout() para dibujar en pantalla.
+       Bloques cuya etiqueta contiene "Cuadro" (resumen de áreas) o
+       "Completo" (relaciones entre pisos, no soportado en esta versión)
+       se omiten.
    ========================================================================= */
 function sheetToAOA(wb, nameFragment){
   const name = wb.SheetNames.find(n => n.toUpperCase().includes(nameFragment));
@@ -1438,14 +1209,6 @@ document.getElementById('fileExcel').onchange = async (e)=>{
 function autoGenerate(){
   const count = +document.getElementById('rNumConfigs').value;
   const charge = +document.getElementById('rCharge').value;
-  if(!nodes.length){
-    currentConfigs = [];
-    selectedIndex = 0;
-    renderGrid();
-    renderDetail();
-    refreshMatricesIfVisible();
-    return;
-  }
   currentConfigs = generateConfigs(count, charge);
   selectedIndex = 0;
   renderGrid();
@@ -1471,6 +1234,7 @@ document.getElementById('btnExportBubblePDF').onclick = exportBubblePDF;
 document.getElementById('btnExportAreasPDF').onclick = exportAreasPDF;
 document.getElementById('btnExportMatricesPDF').onclick = exportMatricesPDF;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
+  // MODIFICADO — el nuevo espacio recibe el siguiente ID numérico único
   if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], num:nextNodeId++});
   else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});
   renderTables();
@@ -1485,6 +1249,7 @@ document.getElementById('rLabelMode').onchange = (e)=>{ labelMode = e.target.val
 document.getElementById('fMotivos').addEventListener('input', refreshMatricesIfVisible);
 document.getElementById('fProyecto').addEventListener('input', refreshMatricesIfVisible);
 
+/* pestañas: Burbujas / Matrices — la consola izquierda (aside) no se toca */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.onclick = ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -1497,7 +1262,13 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 });
 
 /* =========================================================================
-   8) ESTUDIOS EN GITHUB (resto del código idéntico al original)
+   8) ESTUDIOS EN GITHUB — usa la Contents API de GitHub directo desde el
+      navegador (sin backend). Cada estudio vive en:
+        estudios/<slug-del-proyecto>/matrices.json
+      El token se guarda solo en localStorage de este navegador — nunca
+      viaja a ningún otro lado más que a api.github.com. Recomendado:
+      un fine-grained personal access token con permiso de Contents
+      (read & write) limitado a un solo repositorio.
    ========================================================================= */
 function slugify(s){ return s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 function ghConfig(){
@@ -1595,6 +1366,8 @@ async function ghLoadEstudio(){
     document.getElementById('fMotivos').value = payload.motivos || '';
     plantas = payload.plantas && payload.plantas.length ? payload.plantas : ['Baja','Alta'];
     plantaColors = payload.plantaColors || {};
+    // MODIFICADO — normaliza estudios guardados antes de esta Fase 1 (sin `num`)
+    // y recalcula el contador de IDs para que los próximos espacios no choquen.
     let maxNum = 0;
     nodes = (payload.nodes || []).map((n,i)=>{
       const num = (n.num != null) ? n.num : (i+1);
@@ -1644,7 +1417,7 @@ loadGhConfigFromStorage();
 })();
 
 /* =========================================================================
-   10) ZOOM / PAN
+   10) ZOOM / PAN del diagrama de burbujas seleccionado
    ========================================================================= */
 (function(){
   const svg = document.getElementById('mainSvg');
@@ -1686,14 +1459,7 @@ loadGhConfigFromStorage();
   document.getElementById('btnZoomReset').onclick = ()=>{ scale=1; panX=0; panY=0; applyZoomTransform(); };
 })();
 
-// =========================================================================
-// INICIALIZACIÓN
-// =========================================================================
-ejemplo();
 renderLegend();
 renderPlantaChips();
 renderTables();
 autoGenerate();
-</script>
-</body>
-</html>

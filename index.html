@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
-    --paper:#EDEFF3;
+    --paper:#FFFFFF;
     --paper-line:#D7DCE3;
     --panel:#F7F8FA;
     --ink:#17233B;
@@ -73,12 +73,16 @@
   td input, td select{width:100%; font:12px var(--sans); border:1px solid transparent; background:transparent; padding:3px 2px; border-radius:2px;}
   td input:focus, td select:focus{outline:none; border-color:var(--border); background:#fff;}
   td.num input{width:44px;}
-  td.idx-num{
+    td.idx-num{
     font:italic 11px var(--mono);
     color:var(--ink-faint);
     text-align:center;
     width:26px;
   }
+    /* NOTA: columna "Planta" oculta temporalmente en la tabla de espacios (tblNodos).
+     Para volver a mostrarla: borra esta línea ".planta-col{display:none;}"
+     (los chips de Plantas/Niveles arriba NO se ven afectados por esto). */
+  .planta-col{display:none;}
   .row-del{cursor:pointer; color:var(--ink-faint); font-family:var(--mono); font-size:14px; text-align:center;}
   .row-del:hover{color:var(--negativa);}
   .add-row{font:11px var(--mono); color:var(--ink-soft); background:none; border:1px dashed var(--border); width:100%; padding:6px; margin-top:6px; text-transform:none; letter-spacing:0;}
@@ -147,7 +151,7 @@
   #printArea{display:none;}
   .print-page{width:100%; height:190mm; max-height:190mm; padding:4mm 0; overflow:hidden; page-break-after:always; box-sizing:border-box; display:flex; flex-direction:column;}
   .print-page:last-child{page-break-after:auto;}
-  .print-head{margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid #C7CEDA; flex:none;}
+    .print-head{margin-bottom:8px; padding-bottom:5px; flex:none;}
   .print-head .t1{font:700 16px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#17233B; display:block;}
   .print-head .t2{font:italic 11px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; display:block;}
   .print-head .t3{font:9px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; margin-top:2px; display:block;}
@@ -157,7 +161,8 @@
   .print-side-col{width:250px; flex:none; display:flex; flex-direction:column; gap:7px; overflow:hidden;}
   .legend-block{display:flex; flex-direction:column; gap:6px;}
   .areas-table{width:250px; border-collapse:collapse; font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
-  .areas-table th{font:700 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:2px 4px; border-bottom:1.2px solid #17233B;}
+    .areas-table th{font:700 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:2px 4px; border-bottom:1.2px solid #17233B;}
+  .areas-table th:nth-child(3){text-align:right;}
   .areas-table td{padding:1.6px 4px; border-bottom:1px solid #E3E6EC;}
   .areas-table td.idx{font:italic 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; width:18px;}
   .areas-table td.num{text-align:right; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
@@ -166,7 +171,7 @@
   .matrix-legend-list{font-size:8.5px;}
   .matrix-legend-list .lg-title{margin-bottom:4px;}
   .matrix-legend-list .lg-row{margin-bottom:2px; gap:5px;}
-  .print-foot{display:flex; gap:16px; align-items:center; margin-top:8px; padding-top:6px; border-top:1px solid #C7CEDA; width:100%; flex:none;}
+    .print-foot{display:flex; gap:16px; align-items:center; margin-top:8px; padding-top:6px; width:100%; flex:none;}
   .legend-2col{display:grid; grid-template-columns:1fr 1fr; column-gap:8px;}
   .print-foot-text{font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.45;}
   @media print{
@@ -209,8 +214,8 @@
     </div>
 
     <div class="section-title">Nodos (espacios)<span></span></div>
-    <table id="tblNodos">
-      <thead><tr><th>#</th><th>Espacio</th><th>m²</th><th>Planta</th><th></th></tr></thead>
+        <table id="tblNodos">
+      <thead><tr><th>#</th><th>Espacio</th><th>m²</th><th class="planta-col">Planta</th><th>Tipo</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
     <button class="add-row" data-add="node">+ agregar espacio</button>
@@ -259,12 +264,13 @@
       <div class="toolbar">
         <div class="field">N.º variantes <input type="range" id="rNumConfigs" min="2" max="8" value="4"><span class="val" id="vNumConfigs">4</span></div>
         <div class="field">Repulsión general <input type="range" id="rCharge" min="40" max="260" value="130"><span class="val" id="vCharge">130</span></div>
-        <div class="field">Etiqueta
+               <div class="field">Etiqueta
           <select id="rLabelMode">
             <option value="nombre">Nombre completo</option>
             <option value="numero">Número</option>
           </select>
         </div>
+        <div class="field"><label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="chkReticula" checked> Retícula guía</label></div>
         <div class="tb-spacer"></div>
         <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
         <button class="ghost" id="btnExportSVG">Exportar SVG</button>
@@ -340,8 +346,8 @@ const FISICA_GAP = {
 const PLANTA_COLOR = { baja: 'var(--baja)', alta: 'var(--alta)' };
 const STANDARD_SCALES = [50,75,100,125,150,200,250,300,400,500,750,1000];
 const MATRIZ_COLOR = {
-  mandatoria:   '#2F6D9C',
-  deseable:     '#E08A2B',
+  mandatoria:   '#5B9BD5',
+  deseable:     '#F4B183',
   neutral:      '#B9BEC7',
   negativa:     '#B5432E',
   'por-decidir': null
@@ -411,7 +417,7 @@ function ejemplo(){
     {id:'Vestidor', area:6, planta:'Alta'},
     {id:'Baño principal', area:8.5, planta:'Alta'},
   ];
-  nodes = nodes.map((n,i)=>({...n, num:i+1}));
+    nodes = nodes.map((n,i)=>({...n, num:i+1, tipo:n.tipo||'Privado'}));
   nextNodeId = nodes.length + 1;
 
   edges = [
@@ -698,6 +704,7 @@ function generateConfigs(count, chargeStrength){
 let currentConfigs = [];
 let selectedIndex = 0;
 let labelMode = 'nombre';
+let reticulaVisible = true;
 
 function polarXY(cx,cy,r,ang){ return {x:cx+r*Math.cos(ang), y:cy+r*Math.sin(ang)}; }
 function arcD(cx,cy,r,a0,a1){
@@ -727,9 +734,40 @@ function extRadiusFor(area, kScale){
   return R0 + Math.max(6, R0*0.28); // "diámetro de aire" — por aquí se conectan las líneas
 }
 
+function buildOrientationArcs(n, others, kScale){
+  if(!others.length) return '';
+  const R0 = radiusFor(n.area, kScale);
+  const ringStep = R0*0.15;
+  let s = '';
+  others.forEach((other, i)=>{
+        const ang = Math.atan2(other.y - n.y, other.x - n.x);
+    const span = Math.max(30, 300 - i*40); // grados: el exterior casi círculo completo, se acorta hacia adentro
+    const halfOpen = (360-span)/2 * Math.PI/180;
+    const r = Math.max(R0*0.2, R0*0.9 - i*ringStep);
+    const a0 = ang + halfOpen;
+    const a1 = ang - halfOpen + Math.PI*2;
+    s += `<path d="${arcD(n.x, n.y, r, a0, a1)}" fill="none" stroke="#999" stroke-width="0.6" stroke-dasharray="0.1 2.5" stroke-linecap="round"/>`;
+    const tick0 = polarXY(n.x, n.y, r - ringStep*0.4, ang);
+    const tick1 = polarXY(n.x, n.y, r + ringStep*0.4, ang);
+    s += `<line x1="${tick0.x}" y1="${tick0.y}" x2="${tick1.x}" y2="${tick1.y}" stroke="#999" stroke-width="0.6" stroke-dasharray="0.1 2.5" stroke-linecap="round"/>`;
+  });
+  return s;
+}
+
 function svgFor(result, W=1440, H=932, interactive=false){
   const kScale = result.kScale;
   const nodeById = new Map(result.nodes.map(n=>[n.id,n]));
+
+  const adjacency = new Map();
+  result.nodes.forEach(n=>adjacency.set(n.id, []));
+  result.edges.forEach(e=>{
+    if(e.importancia === 'negativa') return;
+    const a = typeof e.source==='object'? nodeById.get(e.source.id) : nodeById.get(e.source);
+    const b = typeof e.target==='object'? nodeById.get(e.target.id) : nodeById.get(e.target);
+    if(!a||!b) return;
+    adjacency.get(a.id).push(b);
+    adjacency.get(b.id).push(a);
+  });
 
   let s = `<g>`;
 
@@ -742,6 +780,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
     s += `<g class="node-drag" data-node-id="${encodeURIComponent(n.id)}" style="cursor:grab;">`;
     s += `<circle cx="${cx}" cy="${cy}" r="${Rext}" fill="none" stroke="#999" stroke-width="0.6" stroke-dasharray="0.1 2.5" stroke-linecap="round"/>`;
     s += `<circle cx="${cx}" cy="${cy}" r="${R0}" fill="#fff" stroke="#666666" stroke-width="1"/>`;
+    s += buildOrientationArcs(n, adjacency.get(n.id) || [], kScale);
 
     if(labelMode === 'numero'){
       const numSize = Math.max(7, Math.min(28, R0*0.65));
@@ -806,6 +845,19 @@ function renderGrid(){
   });
 }
 
+function buildReticulaGuia(cx, cy, maxR, ringStep, spokes){
+  let s = '<g id="reticulaGuiaGroup" stroke="#F0D878" stroke-width="1" stroke-dasharray="1 3" fill="none">';
+  for(let r=ringStep; r<=maxR; r+=ringStep){
+    s += `<circle cx="${cx}" cy="${cy}" r="${r}"/>`;
+  }
+  for(let i=0;i<spokes;i++){
+    const ang = (i/spokes)*Math.PI*2;
+    const x2 = cx + maxR*Math.cos(ang), y2 = cy + maxR*Math.sin(ang);
+    s += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}"/>`;
+  }
+  s += '</g>';
+  return s;
+}
 function renderDetail(){
   const c = currentConfigs[selectedIndex];
   const mainSvg = document.getElementById('mainSvg');
@@ -815,26 +867,37 @@ function renderDetail(){
     label.textContent = 'Sin variantes generadas';
     return;
   }
-  mainSvg.innerHTML = `<g id="zoomG">${svgFor(c.result)}</g>`;
+   const gridBg = reticulaVisible ? buildReticulaGuia(TABLO_W/2, TABLO_H/2, 1400, 70, 24) : '';
+  mainSvg.innerHTML = `<g id="zoomG">${gridBg}${svgFor(c.result)}</g>`;
   applyZoomTransform();
   label.textContent = `Variante ${selectedIndex+1} · ${Math.round(c.score*100)}% de adyacencias satisfechas · ${c.crossings===0?'sin cruces de línea':c.crossings+' cruce(s) de línea'}`;
 }
 
 // ----- NUEVA FUNCIÓN PARA CONTROLES DE ESTILO DE LÍNEAS -----
+const LINE_DASH_PRESETS = { solida: null, dashed: '6 3', punteada: '1.5 3' };
+function dashPresetKey(dash){
+  if(!dash) return 'solida';
+  const first = parseFloat(dash.split(' ')[0]);
+  return first <= 2 ? 'punteada' : 'dashed';
+}
 function renderLineStyleControls(){
   const el = document.getElementById('lineStyleControls');
   el.innerHTML = Object.entries(IMPORTANCIA).map(([k,v])=>`
     <div style="display:flex; align-items:center; gap:6px; margin-bottom:5px; font:11px var(--mono);">
       <span style="flex:1; color:var(--ink-soft);">${v.label}</span>
       <input type="number" step="0.5" min="0.5" value="${v.width}" data-style-k="${k}" data-style-f="width" style="width:40px; border:1px solid var(--border); padding:2px;" title="grosor">
-      <input type="text" value="${v.dash||''}" placeholder="sólida" data-style-k="${k}" data-style-f="dash" style="width:60px; border:1px solid var(--border); padding:2px;" title="dash SVG, ej. 4 2, vacío = sólida">
+      <select data-style-k="${k}" data-style-f="dash" style="width:80px; border:1px solid var(--border); padding:2px;" title="tipo de línea">
+        <option value="solida" ${dashPresetKey(v.dash)==='solida'?'selected':''}>Sólida</option>
+        <option value="dashed" ${dashPresetKey(v.dash)==='dashed'?'selected':''}>Dashed</option>
+        <option value="punteada" ${dashPresetKey(v.dash)==='punteada'?'selected':''}>Punteada</option>
+      </select>
     </div>
   `).join('');
-  el.querySelectorAll('input').forEach(inp=>{
+  el.querySelectorAll('input,select').forEach(inp=>{
     inp.onchange = ()=>{
       const k = inp.dataset.styleK, f = inp.dataset.styleF;
       if(f==='width') IMPORTANCIA[k].width = parseFloat(inp.value)||1;
-      else IMPORTANCIA[k].dash = inp.value.trim() || null;
+      else IMPORTANCIA[k].dash = LINE_DASH_PRESETS[inp.value];
       renderGrid(); renderDetail(); renderLegend();
     };
   });
@@ -843,9 +906,8 @@ function renderLineStyleControls(){
 function renderLegend(){
   const el = document.getElementById('legendMini');
   el.innerHTML = Object.entries(IMPORTANCIA).map(([k,v])=>
-    `<div><span class="sw" style="border-top-color:${v.color.replace('var(--ink)','#17233B').replace('var(--ink-soft)','#4A5771').replace('var(--ink-faint)','#8A93A3').replace('var(--negativa)','#B5432E')}; border-top-style:${v.dash?'dotted':'solid'};"></span>${v.label}</div>`
-  ).join('') + `<div style="margin-top:6px;"><span class="sw" style="border-top-color:#B9862E;border-top-width:8px;"></span>Planta baja</div>
-  <div><span class="sw" style="border-top-color:#3E6E8E;border-top-width:8px;"></span>Planta alta</div>`;
+    `<div><span class="sw" style="border-top-color:${MATRIZ_COLOR[k]||'#C7CEDA'}; border-top-style:${v.dash?'dotted':'solid'};"></span>${v.label}</div>`
+  ).join('');
 }
 
 /* =========================================================================
@@ -865,16 +927,21 @@ function trianglePoly(cx,cy,r,filled){
   const pts = `${cx},${cy-r} ${cx+r*0.95},${cy+r*0.72} ${cx-r*0.95},${cy+r*0.72}`;
   return `<polygon points="${pts}" fill="${filled?'#17233B':'#fff'}" stroke="#17233B" stroke-width="1.3"/>`;
 }
-function glyphMarkup(key, cx, cy, r){
+function trianglePoly(cx,cy,r,filled,sw){
+  const pts = `${cx},${cy-r} ${cx+r*0.95},${cy+r*0.72} ${cx-r*0.95},${cy+r*0.72}`;
+  return `<polygon points="${pts}" fill="${filled?'#17233B':'#fff'}" stroke="#17233B" stroke-width="${sw}"/>`;
+}
+function glyphMarkup(key, cx, cy, r, strokeScale){
+  const sc = strokeScale != null ? strokeScale : 1;
   switch(key){
-    case 'contencion-abierta': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="1.3"/>`;
+    case 'contencion-abierta': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="${1.3*sc}"/>`;
     case 'contencion-cerrada': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B"/>`;
-    case 'contiguo-abierta':   return trianglePoly(cx,cy,r,false);
-    case 'contiguo-cerrada':   return trianglePoly(cx,cy,r,true);
+    case 'contiguo-abierta':   return trianglePoly(cx,cy,r,false,1.3*sc);
+    case 'contiguo-cerrada':   return trianglePoly(cx,cy,r,true,1.3*sc);
     case 'neutro':             return `<rect x="${cx-r*0.78}" y="${cy-r*0.78}" width="${r*1.56}" height="${r*1.56}" fill="#B9BEC7"/>`;
-    case 'separacion-barrera': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="1.3" stroke-dasharray="0.1 3" stroke-linecap="round"/>`;
-    case 'separacion-locacion':return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B" stroke="#fff" stroke-width="1.4"/>`;
-    default: return `<path d="${diamondPath(cx,cy,r)}" fill="none" stroke="#C7CEDA" stroke-width="1"/>`;
+    case 'separacion-barrera': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="${1.3*sc}" stroke-dasharray="${0.1*sc} ${3*sc}" stroke-linecap="round"/>`;
+    case 'separacion-locacion':return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B" stroke="#fff" stroke-width="${1.4*sc}"/>`;
+    default: return `<path d="${diamondPath(cx,cy,r)}" fill="none" stroke="#C7CEDA" stroke-width="${1*sc}"/>`;
   }
 }
 
@@ -1083,13 +1150,17 @@ function refreshMatricesIfVisible(){
 function renderTables(){
   const tb = document.querySelector('#tblNodos tbody');
   tb.innerHTML='';
+  const TIPOS = ['Público','Privado','Otro'];
   nodes.forEach((n,i)=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td class="idx-num">${n.num}</td>
       <td><input value="${n.id}" data-i="${i}" data-f="id"></td>
       <td class="num"><input type="number" step="0.5" value="${n.area}" data-i="${i}" data-f="area"></td>
-      <td><select data-i="${i}" data-f="planta">
+      <td class="planta-col"><select data-i="${i}" data-f="planta">
         ${plantas.map(p=>`<option ${n.planta===p?'selected':''}>${p}</option>`).join('')}
+      </select></td>
+      <td><select data-i="${i}" data-f="tipo">
+        ${TIPOS.map(t=>`<option ${n.tipo===t?'selected':''}>${t}</option>`).join('')}
       </select></td>
       <td class="row-del" data-del="${i}">✕</td>`;
     tb.appendChild(tr);
@@ -1159,6 +1230,8 @@ function exportSVG(){
   const svg = document.getElementById('mainSvg');
   const clone = svg.cloneNode(true);
   clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  const grid = clone.querySelector('#reticulaGuiaGroup');
+  if(grid) grid.remove();
   download(`burbujas_v${selectedIndex+1}.svg`, clone.outerHTML, 'image/svg+xml');
 }
 function download(filename, text, type){
@@ -1229,45 +1302,59 @@ function svgTrueScaleBubbles(scaleE, layout){
   const ty = p => (p.y-layout.minY)*mmPerUnit + pad;
   const byId = id => layout.pts.find(n=>n.id===id);
   let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" xmlns="http://www.w3.org/2000/svg">`;
-  layout.edges.forEach(e=>{
+
+  layout.pts.forEach((p)=>{
+    const r = p.r*mmPerUnit, cx=tx(p), cy=ty(p);
+    s += `<circle cx="${cx}" cy="${cy}" r="${r + Math.max(0.5, r*0.28)}" fill="none" stroke="#999" stroke-width="0.15" stroke-dasharray="0.05 0.6" stroke-linecap="round"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#666666" stroke-width="0.15"/>`;
+
+    const maxChars = Math.max(4, Math.round(r*0.30));
+    const lines = wrapWords(p.id.toUpperCase(), maxChars);
+    const nameSize = Math.max(0.9, Math.min(2.4, r*0.24));
+    const lineH = nameSize*1.15;
+    const startY = cy - ((lines.length-1)*lineH)/2 - 0.6;
+    lines.forEach((line,i)=>{
+      s += `<text x="${cx}" y="${startY + i*lineH}" text-anchor="middle" font-size="${nameSize}" font-weight="700" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#A35C8F">${line}</text>`;
+    });
+    const areaY = startY + lines.length*lineH + nameSize*0.5;
+    s += `<text x="${cx}" y="${areaY}" text-anchor="middle" font-size="${Math.max(0.9,nameSize*0.7)}" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#666666">${p.area} m²</text>`;
+  });
+
+   layout.edges.forEach(e=>{
+    if(e.importancia === 'negativa') return;
     const style = IMPORTANCIA[e.importancia];
     const a = byId(e.source.id||e.source), b = byId(e.target.id||e.target);
     if(!a||!b) return;
+    const Ra = a.r*mmPerUnit + Math.max(0.5, a.r*mmPerUnit*0.28);
+    const Rb = b.r*mmPerUnit + Math.max(0.5, b.r*mmPerUnit*0.28);
+    const ax=tx(a), ay=ty(a), bx=tx(b), by=ty(b);
+    const dx=bx-ax, dy=by-ay, dist=Math.hypot(dx,dy)||1e-6;
+    const ux=dx/dist, uy=dy/dist;
+    const pAx=ax+ux*Ra, pAy=ay+uy*Ra;
+    const pBx=bx-ux*Rb, pBy=by-uy*Rb;
     const col = MATRIZ_COLOR[e.importancia] || '#C7CEDA';
-    s += `<line x1="${tx(a)}" y1="${ty(a)}" x2="${tx(b)}" y2="${ty(b)}" stroke="${col}" stroke-width="${style.width*0.35}" stroke-linecap="round" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.9:0.75}"/>`;
-    const mx=(tx(a)+tx(b))/2, my=(ty(a)+ty(b))/2;
+    s += `<line x1="${pAx}" y1="${pAy}" x2="${pBx}" y2="${pBy}" stroke="${col}" stroke-width="${style.width*0.35}" stroke-linecap="round" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="0.75"/>`;
+    const mx=(pAx+pBx)/2, my=(pAy+pBy)/2;
     const gR = 1.4;
-    s += `<circle cx="${mx}" cy="${my}" r="${gR+0.4}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR)}`;
+       s += `<circle cx="${mx}" cy="${my}" r="${gR+0.4}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR, 0.12)}`;
   });
-  layout.pts.forEach((p)=>{
-    const r = p.r*mmPerUnit, cx=tx(p), cy=ty(p);
-    const ring = plantaColor(p.planta);
-    s += `<circle cx="${cx}" cy="${cy}" r="${r+0.9}" fill="none" stroke="${ring}" stroke-width="0.6"/>`;
-    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="0.15"/>`;
-    if(r > 9){
-      s += `<text x="${cx}" y="${cy-r+2.6}" text-anchor="middle" font-size="1.9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#8A93A3">${p.num}</text>`;
-      s += `<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="${Math.min(3.2,r/3)}" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="600" fill="#17233B">${p.id}</text>`;
-      s += `<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="2.4" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771">${p.area} m²</text>`;
-    } else {
-      s += `<text x="${cx}" y="${cy-r-1.8}" text-anchor="middle" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#17233B">${p.num}</text>`;
-    }
-  });
+
   s += `</svg>`;
   return s;
 }
 
 function scaleBarSVG(scaleE){
   const mmPerMeter = 1000/scaleE;
-  let step=5; if(mmPerMeter*5 > 90) step = Math.max(1, Math.floor(90/(mmPerMeter*5))*1) || 1;
+  let step=5; if(mmPerMeter*5 > 45) step = Math.max(1, Math.floor(45/(mmPerMeter*5))*1) || 1;
   const count = 5;
-  const totalMM = step*count*mmPerMeter;
-  let s = `<svg viewBox="0 0 ${totalMM+10} 14" width="${totalMM+10}mm" height="14mm" xmlns="http://www.w3.org/2000/svg">`;
+  const totalMM = step*count*mmPerMeter*0.5;
+  let s = `<svg viewBox="0 0 ${totalMM+6} 8" width="${totalMM+6}mm" height="8mm" xmlns="http://www.w3.org/2000/svg">`;
   for(let i=0;i<count;i++){
-    const x0=5+i*step*mmPerMeter, x1=x0+step*mmPerMeter;
-    s += `<rect x="${x0}" y="4" width="${x1-x0}" height="3" fill="${i%2===0?'#17233B':'#fff'}" stroke="#17233B" stroke-width="0.3"/>`;
+    const x0=3+i*step*mmPerMeter*0.5, x1=x0+step*mmPerMeter*0.5;
+    s += `<rect x="${x0}" y="2.5" width="${x1-x0}" height="1.8" fill="${i%2===0?'#17233B':'#fff'}" stroke="#17233B" stroke-width="0.2"/>`;
   }
-  s += `<text x="5" y="12" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771">0</text>`;
-  s += `<text x="${5+count*step*mmPerMeter}" y="12" font-size="2.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771" text-anchor="end">${count*step} m</text>`;
+  s += `<text x="3" y="7" font-size="1.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771">0</text>`;
+  s += `<text x="${3+count*step*mmPerMeter*0.5}" y="7" font-size="1.6" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#4A5771" text-anchor="end">${count*step} m</text>`;
   s += `</svg>`;
   return s;
 }
@@ -1284,16 +1371,15 @@ function exportBubblePDF(){
   const svgMarkup = svgTrueScaleBubbles(scaleE, layout);
   const totalArea = nodes.reduce((a,n)=>a+n.area,0);
 
-  const infoBits = [
-    fase ? `Fase: ${fase}` : '', elaboro ? `Elaboró: ${elaboro}` : '',
-    `${Math.round(c.score*100)}% de adyacencias satisfechas`
+    const infoBits = [
+    fase ? `Fase: ${fase}` : '', elaboro ? `Elaboró: ${elaboro}` : ''
   ].filter(Boolean).join(' · ');
 
   document.getElementById('printArea').innerHTML = `
     <div class="print-page">
       <div class="print-head">
         <span class="t1">${proyecto}</span>
-        <span class="t2">Diagrama de burbujas — Variante ${selectedIndex+1}</span>
+                <span class="t2">Diagrama de burbujas</span>
         <span class="t3">${infoBits}</span>
       </div>
       <div class="print-body-split">
@@ -1359,14 +1445,14 @@ function buildAreasTableHtml(){
   groups.forEach(g=>{
     const subtotal = g.items.reduce((a,n)=>a+n.area,0);
     html += `<table class="areas-table">
-      <thead><tr><th colspan="2">Planta ${g.p}</th><th>m²</th></tr></thead>
+      <thead><tr><th>#</th><th>Espacio</th><th>m²</th><th>Tipo</th></tr></thead>
       <tbody>
-        ${g.items.map(n=>`<tr><td class="idx">${String(n.num).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td></tr>`).join('')}
-        <tr class="subtotal"><td colspan="2">Subtotal</td><td class="num">${subtotal.toFixed(1)} m²</td></tr>
+        ${g.items.map(n=>`<tr><td class="idx">${String(n.num).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td><td>${n.tipo||'Privado'}</td></tr>`).join('')}
+        <tr class="subtotal"><td colspan="3">Subtotal</td><td class="num">${subtotal.toFixed(1)} m²</td></tr>
       </tbody>
     </table>`;
   });
-  html += `<table class="areas-table total-table"><tbody><tr class="total"><td colspan="2">TOTAL</td><td class="num">${totalGeneral.toFixed(1)} m²</td></tr></tbody></table>`;
+  html += `<table class="areas-table total-table"><tbody><tr class="total"><td colspan="3">TOTAL</td><td class="num">${totalGeneral.toFixed(1)} m²</td></tr></tbody></table>`;
   return html;
 }
 function exportAreasPDF(){
@@ -1480,7 +1566,7 @@ function importFromWorkbook(wb){
   let num = 1;
   areaBlocks.forEach(b=>{
     b.items.forEach(it=>{
-      const node = {id:it.name, area:it.area, planta:b.label, num:num++};
+            const node = {id:it.name, area:it.area, planta:b.label, tipo:'Privado', num:num++};
       nodes.push(node);
       lookup[b.label+'|'+it.localIndex] = node;
     });
@@ -1574,7 +1660,7 @@ document.getElementById('btnExportBubblePDF').onclick = exportBubblePDF;
 document.getElementById('btnExportAreasPDF').onclick = exportAreasPDF;
 document.getElementById('btnExportMatricesPDF').onclick = exportMatricesPDF;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
-  if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], num:nextNodeId++});
+    if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], tipo:'Privado', num:nextNodeId++});
   else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});
   renderTables();
   autoGenerate();
@@ -1585,6 +1671,7 @@ document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
   el.oninput = ()=>{ val.textContent = el.value; };
 });
 document.getElementById('rLabelMode').onchange = (e)=>{ labelMode = e.target.value; renderGrid(); renderDetail(); };
+document.getElementById('chkReticula').onchange = (e)=>{ reticulaVisible = e.target.checked; renderDetail(); };
 document.getElementById('fMotivos').addEventListener('input', refreshMatricesIfVisible);
 document.getElementById('fProyecto').addEventListener('input', refreshMatricesIfVisible);
 

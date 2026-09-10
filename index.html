@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
   :root{
     --paper:#FFFFFF;
@@ -179,6 +180,19 @@
     #printArea{display:block !important;}
     @page{ size:landscape; margin:10mm; }
   }
+  /* ---- Vista 3D ---- */
+#pane3D.view-pane.active{display:flex; flex-direction:column;}
+#canvas3DWrap{
+  position:relative; flex:1; min-height:560px; background:var(--panel);
+  border-top:1px solid var(--border);
+}
+#canvas3DWrap canvas{display:block; width:100%; height:100%;}
+#tooltip3D{
+  position:absolute; pointer-events:none; z-index:5; display:none;
+  background:var(--ink); color:var(--panel); font:11px var(--mono);
+  padding:6px 10px; white-space:nowrap; border-radius:2px;
+}
+#pane3D .toolbar .field input[type=range]{width:120px;}
 </style>
 </head>
 <body>
@@ -255,9 +269,10 @@
   <div id="resizer"></div>
 
   <div class="viewer">
-    <div class="view-tabs">
+        <div class="view-tabs">
       <button class="tab-btn active" data-view="burbujas" type="button">Burbujas</button>
       <button class="tab-btn" data-view="matrices" type="button">Matrices</button>
+      <button class="tab-btn" data-view="3d" type="button">3D</button>
     </div>
 
     <div class="view-pane active" id="paneBurbujas">
@@ -300,7 +315,32 @@
         <button class="ghost" id="btnExportAreasPDF">Exportar Tabla de Áreas (PDF)</button>
         <button class="ghost" id="btnExportMatricesPDF">Exportar PDF (3 láminas)</button>
       </div>
-      <div class="matrix-grid" id="matrixGrid"></div>
+            <div class="matrix-grid" id="matrixGrid"></div>
+    </div>
+
+    <div class="view-pane" id="pane3D">
+      <div class="toolbar">
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+            <input type="checkbox" id="chk3DLabels" checked> Etiquetas
+          </label>
+        </div>
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+            <input type="checkbox" id="chk3DLines" checked> Relaciones
+          </label>
+        </div>
+        <div class="field">
+          Espaciado entre plantas
+          <input type="range" id="r3DSpacing" min="100" max="600" step="10" value="300">
+          <span class="val" id="v3DSpacing">300</span>
+        </div>
+        <div class="tb-spacer"></div>
+        <button class="ghost" id="btnReset3D">Restablecer vista</button>
+      </div>
+      <div id="canvas3DWrap">
+        <div id="tooltip3D"></div>
+      </div>
     </div>
   </div>
 </main>
@@ -601,9 +641,19 @@ function buildSimulation(seedIndex, charge, W, H){
   runSMACOF(simNodes, edges, rnd, charge, kScale);
   kScale *= applyCollisionsAndTabloid(simNodes, kScale);
   const linkEdges = (edges||[]).map(e=>({...e}));
-  let result = {nodes: simNodes, edges: linkEdges, kScale};
-  untangleCrossings(result, 8);
-  result.kScale *= applyCollisionsAndTabloid(result.nodes, result.kScale); // re-ajusta tras los intercambios
+  return {nodes: simNodes, edges: linkEdges, kScale};
+}
+
+// El destrabado + reajuste por colisión es caro (recuenta cruces en cada
+// intercambio). Por eso NO se aplica a los ~160 intentos crudos, solo a
+// un puñado de los ya más prometedores (ver generateConfigs).
+function refineByUntangling(result){
+  for(let pass=0; pass<4; pass++){
+    const before = countCrossings(result);
+    untangleCrossings(result, 10);
+    result.kScale *= applyCollisionsAndTabloid(result.nodes, result.kScale);
+    if(countCrossings(result) >= before) break; // ya convergió, no seguir gastando ciclos
+  }
   return result;
 }
 
@@ -626,8 +676,8 @@ function countCrossings(result){
   const idx = new Map(result.nodes.map(n=>[n.id,n]));
   const kScale = result.kScale;
   const segs = [];
-  result.edges.forEach(e=>{
-    if(e.importancia === 'negativa') return; // no se dibuja, no cuenta
+    result.edges.forEach(e=>{
+    if(e.importancia === 'negativa' || e.importancia === 'neutral') return; // no se dibujan, no cuentan
     const a = idx.get(e.source.id||e.source), b = idx.get(e.target.id||e.target);
     if(a&&b) segs.push([a,b]);
   });
@@ -681,15 +731,25 @@ function signatureOf(result){
 
 function generateConfigs(count, chargeStrength){
   const W=1440,H=932;
+  const tries = Math.max(count*40, 160);
   const candidates=[];
-  const tries = Math.max(count*40, 160);  // más intentos para minimizar cruces
   for(let i=0;i<tries;i++){
     const r = buildSimulation(i, chargeStrength, W, H);
-    candidates.push({result:r, score:scoreLayout(r), crossings:countCrossings(r), sig:signatureOf(r), seed:i});
+    candidates.push({result:r, crossings:countCrossings(r), seed:i});
   }
-  candidates.sort((a,b)=> (a.crossings-b.crossings) || (b.score-a.score));
+  // Solo refinamos (destrabado, caro) a los candidatos ya prometedores.
+  candidates.sort((a,b)=> a.crossings-b.crossings);
+  const poolSize = Math.min(candidates.length, Math.max(count*3, 12));
+  const pool = candidates.slice(0, poolSize);
+  pool.forEach(c=>{
+    refineByUntangling(c.result);
+    c.crossings = countCrossings(c.result);
+    c.score = scoreLayout(c.result);
+    c.sig = signatureOf(c.result);
+  });
+  pool.sort((a,b)=> (a.crossings-b.crossings) || (b.score-a.score));
   const chosen=[]; const seen=new Set();
-  for(const c of candidates){
+  for(const c of pool){
     if(seen.has(c.sig)) continue;
     seen.add(c.sig); chosen.push(c);
     if(chosen.length>=count) break;
@@ -761,7 +821,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
   const adjacency = new Map();
   result.nodes.forEach(n=>adjacency.set(n.id, []));
   result.edges.forEach(e=>{
-    if(e.importancia === 'negativa') return;
+        if(e.importancia === 'negativa' || e.importancia === 'neutral') return;
     const a = typeof e.source==='object'? nodeById.get(e.source.id) : nodeById.get(e.source);
     const b = typeof e.target==='object'? nodeById.get(e.target.id) : nodeById.get(e.target);
     if(!a||!b) return;
@@ -803,8 +863,8 @@ function svgFor(result, W=1440, H=932, interactive=false){
   });
 
   // ----- DIBUJAR ARISTAS (LÍNEAS Y GLIFOS) DESPUÉS -----
-  result.edges.forEach(e=>{
-    if(e.importancia === 'negativa') return;
+    result.edges.forEach(e=>{
+    if(e.importancia === 'negativa' || e.importancia === 'neutral') return;
     const style = IMPORTANCIA[e.importancia];
     const a = typeof e.source==='object'? nodeById.get(e.source.id) : nodeById.get(e.source);
     const b = typeof e.target==='object'? nodeById.get(e.target.id) : nodeById.get(e.target);
@@ -820,7 +880,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
       stroke-width="${style.width}" stroke-linecap="round" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="${e.importancia==='negativa'?0.9:0.75}"><title>${(a.id||a)} — ${(b.id||b)}${e.motivo?' · '+e.motivo:''}</title></line>`;
 
     const mx=(pA.x+pB.x)/2, my=(pA.y+pB.y)/2;
-    const gR = 6;
+    const gR = 4.5;
     s += `<circle cx="${mx}" cy="${my}" r="${gR+1.5}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR)}`;
   });
 
@@ -960,6 +1020,34 @@ function matrixLayout(nodeList, rowH){
   return {rows, pairs, width, height, labelW, rowH};
 }
 
+// ↓↓↓ ESTO ES LO ÚNICO QUE AGREGAS, NUEVO ↓↓↓
+function matrixGridLines(L){
+  const unit = L.rowH/2;
+  const rCell = unit * 0.98;
+  let s = '<g stroke="#D7DCE3" stroke-width="0.75" fill="none">';
+  L.pairs.forEach(p=>{
+    s += `<path d="${diamondPath(p.x, p.y, rCell)}"/>`;
+  });
+  s += '</g>';
+  return s;
+}
+// ↑↑↑ FIN DE LO NUEVO ↑↑↑
+
+function drawLabelGrid(L){
+  const idxColW = 26;
+  const totalH = L.rows.length*L.rowH;
+  let s = '<g stroke="#D7DCE3" stroke-width="0.75" fill="none">';
+  s += `<line x1="0" y1="0" x2="0" y2="${totalH}"/>`;
+  s += `<line x1="0" y1="0" x2="${L.width}" y2="0"/>`;
+  s += `<line x1="0" y1="${totalH}" x2="${L.width}" y2="${totalH}"/>`;
+  s += `<line x1="${idxColW}" y1="0" x2="${idxColW}" y2="${totalH}"/>`;
+  for(let k=1;k<L.rows.length;k++){
+    s += `<line x1="0" y1="${k*L.rowH}" x2="${L.labelW}" y2="${k*L.rowH}"/>`;
+  }
+  s += '</g>';
+  return s;
+}
+
 function drawRowLabels(L){
   let s='';
   L.rows.forEach(r=>{
@@ -973,16 +1061,16 @@ function svgMatrixImportancia(){
   const rowH=32;
   const L = matrixLayout(nodes, rowH);
   let s = `<svg viewBox="0 0 ${L.width} ${L.height}" width="${L.width}" height="${L.height}">`;
-  s += drawRowLabels(L);
-  const r = Math.min(rowH*0.31, 10);
+    s += drawLabelGrid(L); 
+    s += drawRowLabels(L);
+  s += matrixGridLines(L);
+  const r = (rowH/2) * 0.82;
   L.pairs.forEach(p=>{
     const a=L.rows[p.i], b=L.rows[p.j];
     const e = findEdge(a.id,b.id);
     if(e){
       const fill = MATRIZ_COLOR[e.importancia];
       s += `<path d="${diamondPath(p.x,p.y,r)}" fill="${fill||'#fff'}" stroke="#8A93A3" stroke-width="1"><title>${a.id} — ${b.id}: ${IMPORTANCIA[e.importancia].label}</title></path>`;
-    } else {
-      s += `<path d="${diamondPath(p.x,p.y,r*0.55)}" fill="none" stroke="#E3E6EC" stroke-width="1"/>`;
     }
   });
   s += `</svg>`;
@@ -993,15 +1081,15 @@ function svgMatrixFisica(){
   const rowH=32;
   const L = matrixLayout(nodes, rowH);
   let s = `<svg viewBox="0 0 ${L.width} ${L.height}" width="${L.width}" height="${L.height}">`;
-  s += drawRowLabels(L);
-  const r = Math.min(rowH*0.26, 8);
+    s += drawLabelGrid(L); 
+    s += drawRowLabels(L);
+  s += matrixGridLines(L);
+  const r = (rowH/2) * 0.45;
   L.pairs.forEach(p=>{
     const a=L.rows[p.i], b=L.rows[p.j];
     const e = findEdge(a.id,b.id);
     if(e){
       s += `<g><title>${a.id} — ${b.id}: ${FISICA[e.fisica].label}</title>${glyphMarkup(e.fisica,p.x,p.y,r)}</g>`;
-    } else {
-      s += `<path d="${diamondPath(p.x,p.y,r*0.6)}" fill="none" stroke="#E3E6EC" stroke-width="1"/>`;
     }
   });
   s += `</svg>`;
@@ -1039,20 +1127,20 @@ function svgMatrixMotivos(motivoMap){
   const rowH=32;
   const L = matrixLayout(nodes, rowH);
   let s = `<svg viewBox="0 0 ${L.width} ${L.height}" width="${L.width}" height="${L.height}">`;
-  s += drawRowLabels(L);
-  const r = Math.min(rowH*0.31, 10);
+    s += drawLabelGrid(L); 
+    s += drawRowLabels(L);
+  s += matrixGridLines(L);
+    const r = (rowH/2) * 0.82;
   L.pairs.forEach(p=>{
     const a=L.rows[p.i], b=L.rows[p.j];
     const e = findEdge(a.id,b.id);
     const text = e && e.motivo ? e.motivo.trim() : '';
-    if(text){
+       if(text){
       const num = motivoMap.get(text) || '?';
       s += `<g><title>${a.id} — ${b.id}: ${text}</title>
         <path d="${diamondPath(p.x,p.y,r)}" fill="#fff" stroke="#8A93A3" stroke-width="1"/>
         <text x="${p.x}" y="${p.y+3}" text-anchor="middle" font-size="9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#17233B">${num}</text>
       </g>`;
-    } else {
-      s += `<path d="${diamondPath(p.x,p.y,r*0.55)}" fill="none" stroke="#E3E6EC" stroke-width="1"/>`;
     }
   });
   s += `</svg>`;
@@ -1320,8 +1408,8 @@ function svgTrueScaleBubbles(scaleE, layout){
     s += `<text x="${cx}" y="${areaY}" text-anchor="middle" font-size="${Math.max(0.9,nameSize*0.7)}" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#666666">${p.area} m²</text>`;
   });
 
-   layout.edges.forEach(e=>{
-    if(e.importancia === 'negativa') return;
+      layout.edges.forEach(e=>{
+    if(e.importancia === 'negativa' || e.importancia === 'neutral') return;
     const style = IMPORTANCIA[e.importancia];
     const a = byId(e.source.id||e.source), b = byId(e.target.id||e.target);
     if(!a||!b) return;
@@ -1504,7 +1592,8 @@ function parseAreaBlocks(aoa){
       if(r[0]==null && r[1]==null) break;
       if(typeof r[1]==='string' && r[1].trim().toUpperCase()==='TOTAL') break;
       if(typeof r[0]==='number' && r[1]!=null){
-        items.push({localIndex:r[0], name:String(r[1]).trim(), area:Number(r[2])||0});
+        const tipoRaw = r[5]!=null ? String(r[5]).trim() : '';
+        items.push({localIndex:r[0], name:String(r[1]).trim(), area:Number(r[2])||0, tipo: tipoRaw || 'Privado'});
       }
     }
     blocks.push({label, items});
@@ -1524,7 +1613,7 @@ function parseMatrixBlocks(aoa){
       const r = aoa[j] || [];
       if(r[0]==null && r[1]==null) break;
       if(typeof r[0]==='number' && r[1]!=null){
-        items.push({localIndex:r[0], name:String(r[1]).trim(), values:r.slice(2)});
+                items.push({localIndex:r[0], name:String(r[1]).trim(), values:r.slice(2), row:j});
       }
     }
     blocks.push({label, items});
@@ -1548,13 +1637,27 @@ function mapImportanciaCell(v){
   if(s.includes('negativ')) return 'negativa';
   return 'por-decidir';
 }
+// La matriz de Importancia Relativa en Excel no usa texto: cada celda se
+// colorea con el relleno de su categoría (ver hoja -IR, fila "SIMBOLOGÍA").
+const IR_FILL_MAP = { 'F58020':'deseable', '898989':'neutral', 'ED2224':'negativa', '4285F4':'mandatoria' };
+function mapImportanciaFill(argb){
+  if(!argb) return null;
+  const hex = String(argb).slice(-6).toUpperCase();
+  if(hex === '000000') return null; // celda diagonal, no es dato
+  return IR_FILL_MAP[hex] || null;
+}
+function findSheetName(wb, nameFragment){
+  return wb.SheetNames.find(n => n.toUpperCase().includes(nameFragment));
+}
 
 function importFromWorkbook(wb){
   const aoaAreas = sheetToAOA(wb,'AREAS');
   if(!aoaAreas){ alert('No se encontró la hoja de Tabla de Áreas'); return; }
-  const aoaDM = sheetToAOA(wb,'-DM') || sheetToAOA(wb,'MOTIVOS');
+    const aoaDM = sheetToAOA(wb,'-DM') || sheetToAOA(wb,'MOTIVOS');
   const aoaRF = sheetToAOA(wb,'-RF') || sheetToAOA(wb,'FISICA');
   const aoaIR = sheetToAOA(wb,'-IR') || sheetToAOA(wb,'IMPORTANCIA');
+  const irSheetName = findSheetName(wb,'-IR') || findSheetName(wb,'IMPORTANCIA');
+  const wsIR = irSheetName ? wb.Sheets[irSheetName] : null;
 
   const areaBlocks = parseAreaBlocks(aoaAreas);
   plantas = areaBlocks.map(b=>b.label);
@@ -1562,42 +1665,58 @@ function importFromWorkbook(wb){
   areaBlocks.forEach((b,i)=>{ plantaColors[b.label] = PLANTA_PALETTE[i % PLANTA_PALETTE.length]; });
 
   nodes = [];
-  const lookup = {};
+  const lookupByBlock = []; // lookupByBlock[blockIndex] = { localIndex: node }
   let num = 1;
-  areaBlocks.forEach(b=>{
+  areaBlocks.forEach((b,bi)=>{
+    lookupByBlock[bi] = {};
     b.items.forEach(it=>{
-            const node = {id:it.name, area:it.area, planta:b.label, tipo:'Privado', num:num++};
+      const node = {id:it.name, area:it.area, planta:b.label, tipo:it.tipo||'Privado', num:num++};
       nodes.push(node);
-      lookup[b.label+'|'+it.localIndex] = node;
+      lookupByBlock[bi][it.localIndex] = node;
     });
   });
   nextNodeId = num;
 
+  // IMPORTANTE: las hojas de matrices (MATRIZ-DM/RF/IR) suelen titular su bloque
+  // de forma distinta a como se titula en TABLA-AREAS (p.ej. "Espacios" en vez de
+  // "Planta Baja"), así que los bloques se emparejan por ORDEN (mismo nivel/planta),
+  // nunca por el texto del título — antes se buscaban por label y nunca coincidían.
   const dmBlocks = aoaDM ? parseMatrixBlocks(aoaDM) : [];
-  const rfByLabel = Object.fromEntries((aoaRF ? parseMatrixBlocks(aoaRF) : []).map(b=>[b.label,b]));
-  const irByLabel = Object.fromEntries((aoaIR ? parseMatrixBlocks(aoaIR) : []).map(b=>[b.label,b]));
+  const rfBlocks = aoaRF ? parseMatrixBlocks(aoaRF) : [];
+  const irBlocks = aoaIR ? parseMatrixBlocks(aoaIR) : [];
 
   edges = [];
   let motivoMax = 0;
-  dmBlocks.forEach(dmBlock=>{
-    const rfBlock = rfByLabel[dmBlock.label];
-    const irBlock = irByLabel[dmBlock.label];
+  dmBlocks.forEach((dmBlock, bi)=>{
+    const lookup = lookupByBlock[bi];
+    if(!lookup) return;
+    const rfBlock = rfBlocks[bi];
+    const irBlock = irBlocks[bi];
     dmBlock.items.forEach((item, idx)=>{
       const rfItem = rfBlock && rfBlock.items[idx];
       const irItem = irBlock && irBlock.items[idx];
-      item.values.forEach((dmVal, k)=>{
+            item.values.forEach((dmVal, k)=>{
         const rfVal = rfItem ? rfItem.values[k] : null;
         const irVal = irItem ? irItem.values[k] : null;
-        if(dmVal==null && rfVal==null && irVal==null) return;
-        const a = lookup[dmBlock.label+'|'+item.localIndex];
-        const b2 = lookup[dmBlock.label+'|'+(item.localIndex + k + 1)];
+        let irFill = null;
+        if(wsIR && irItem){
+          const addr = XLSX.utils.encode_cell({r: irItem.row, c: 2 + k});
+          const cell = wsIR[addr];
+          irFill = mapImportanciaFill(cell && cell.s && cell.s.fgColor && cell.s.fgColor.rgb);
+        }
+        if(dmVal==null && rfVal==null && irVal==null && irFill==null) return;
+        // La matriz en el Excel es triangular inferior: la columna k (0-based)
+        // siempre corresponde al espacio con índice local k+1, sin importar
+        // el índice de la fila actual (antes se sumaba erróneamente item.localIndex).
+        const a = lookup[item.localIndex];
+        const b2 = lookup[k + 1];
         if(!a || !b2) return;
         let motivo = '';
         if(dmVal!=null){ const n=Number(dmVal); motivo='Motivo '+n; if(n>motivoMax) motivoMax=n; }
         edges.push({
           source: a.id, target: b2.id, motivo,
           fisica: mapFisicaCell(rfVal) || 'por-decidir',
-          importancia: mapImportanciaCell(irVal) || 'por-decidir'
+                    importancia: irFill || mapImportanciaCell(irVal) || 'por-decidir'
         });
       });
     });
@@ -1616,7 +1735,7 @@ document.getElementById('fileExcel').onchange = async (e)=>{
   const file = e.target.files[0];
   if(!file) return;
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, {type:'array'});
+    const wb = XLSX.read(buf, {type:'array', cellStyles:true});
   importFromWorkbook(wb);
   e.target.value = '';
 };
@@ -1633,6 +1752,7 @@ function autoGenerate(){
     renderGrid();
     renderDetail();
     refreshMatricesIfVisible();
+    refresh3DIfVisible();
     return;
   }
   currentConfigs = generateConfigs(count, charge);
@@ -1640,6 +1760,7 @@ function autoGenerate(){
   renderGrid();
   renderDetail();
   refreshMatricesIfVisible();
+  refresh3DIfVisible();
 }
 
 document.getElementById('btnAddPlanta').onclick = ()=>{
@@ -1680,9 +1801,17 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     document.querySelectorAll('.view-pane').forEach(p=>p.classList.remove('active'));
-    const paneId = btn.dataset.view==='burbujas' ? 'paneBurbujas' : 'paneMatrices';
+    const view = btn.dataset.view;
+    const paneId = view==='burbujas' ? 'paneBurbujas' : (view==='matrices' ? 'paneMatrices' : 'pane3D');
     document.getElementById(paneId).classList.add('active');
-    if(btn.dataset.view==='matrices') renderMatrices();
+    if(view==='matrices') renderMatrices();
+    if(view==='3d'){
+      init3DIfNeeded();
+      build3DScene();
+      start3DLoop();
+    } else {
+      stop3DLoop();
+    }
   };
 });
 
@@ -1806,6 +1935,337 @@ document.getElementById('btnGhSave').onclick = ghSaveEstudio;
 document.getElementById('btnGhRefresh').onclick = ghRefreshList;
 document.getElementById('btnGhLoad').onclick = ghLoadEstudio;
 loadGhConfigFromStorage();
+
+/* =========================================================================
+   3D) VISTA 3D — three.js r128, sin OrbitControls nativo (control manual)
+   Reutiliza: nodes, edges, plantas, currentConfigs[selectedIndex],
+   radiusFor, extRadiusFor, plantaColor, MATRIZ_COLOR, IMPORTANCIA.
+   Solo lee datos — no altera el layout 2D ni las exportaciones.
+   ========================================================================= */
+let three3D = null;
+let active3D = false;
+let rafId3D = null;
+let levelSpacing3D = 300;
+let show3DLabels = true;
+let show3DLines = true;
+
+const orbit3D = {
+  radius: 1900,
+  theta: Math.PI/4,
+  phi: Math.PI/3,
+  target: null
+};
+
+function init3DIfNeeded(){
+  if(three3D) return;
+  if(typeof THREE === 'undefined'){
+    console.warn('three.js no cargó — revisa el <script> del CDN.');
+    return;
+  }
+  const wrap = document.getElementById('canvas3DWrap');
+  const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  wrap.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 1, 20000);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+  const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+  dir.position.set(400, 800, 300);
+  scene.add(ambient, dir);
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  orbit3D.target = new THREE.Vector3(0,0,0);
+
+  three3D = {
+    renderer, scene, camera, group,
+    spheres: [], wrap,
+    raycaster: new THREE.Raycaster(),
+    mouse: new THREE.Vector2()
+  };
+
+  resize3D();
+  attach3DControls();
+  new ResizeObserver(()=>resize3D()).observe(wrap);
+}
+
+function resize3D(){
+  if(!three3D) return;
+  const wrap = three3D.wrap;
+  const w = wrap.clientWidth || 1, h = wrap.clientHeight || 1;
+  three3D.renderer.setSize(w, h);
+  three3D.camera.aspect = w/h;
+  three3D.camera.updateProjectionMatrix();
+}
+
+function updateCamera3D(){
+  if(!three3D) return;
+  const {radius, theta, phi, target} = orbit3D;
+  const x = target.x + radius * Math.sin(phi) * Math.sin(theta);
+  const y = target.y + radius * Math.cos(phi);
+  const z = target.z + radius * Math.sin(phi) * Math.cos(theta);
+  three3D.camera.position.set(x, y, z);
+  three3D.camera.lookAt(target);
+}
+
+function makeTextSprite3D(text){
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const fontSize = 42;
+  ctx.font = `700 ${fontSize}px Arial`;
+  const lines = String(text).split('\n');
+  const textW = Math.max(...lines.map(l=>ctx.measureText(l).width));
+  canvas.width = Math.ceil(textW + 40);
+  canvas.height = Math.ceil(fontSize*1.25*lines.length + 20);
+  ctx.font = `700 ${fontSize}px Arial`;
+  ctx.fillStyle = 'rgba(23,35,59,0.82)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#F7F8FA';
+  ctx.textBaseline = 'middle';
+  lines.forEach((line,i)=>{
+    ctx.fillText(line, 20, (canvas.height/lines.length)*(i+0.5));
+  });
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  const material = new THREE.SpriteMaterial({map:texture, depthTest:false, depthWrite:false, transparent:true});
+  const sprite = new THREE.Sprite(material);
+  const worldPerPixel = 0.11;
+  sprite.scale.set(canvas.width*worldPerPixel, canvas.height*worldPerPixel, 1);
+  return sprite;
+}
+
+function makeEdgeCylinder3D(a, b, radius, colorHex){
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length() || 1e-6;
+  const geo = new THREE.CylinderGeometry(radius, radius, len, 8, 1, false);
+  const mat = new THREE.MeshBasicMaterial({color: colorHex});
+  const mesh = new THREE.Mesh(geo, mat);
+  const mid = new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
+  mesh.position.copy(mid);
+  const axis = new THREE.Vector3(0,1,0);
+  const dirNorm = dir.clone().normalize();
+  const quat = new THREE.Quaternion().setFromUnitVectors(axis, dirNorm);
+  mesh.quaternion.copy(quat);
+  return mesh;
+}
+
+function cssVarToHex(varName, fallback){
+  if(!varName) return fallback;
+  if(varName.startsWith('#')) return varName;
+  const m = varName.match(/var\((--[\w-]+)\)/);
+  if(m){
+    const resolved = getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim();
+    return resolved || fallback;
+  }
+  return varName;
+}
+
+function build3DScene(){
+  if(!three3D) return;
+  const {group} = three3D;
+  while(group.children.length){
+    const obj = group.children.pop();
+    if(obj.geometry) obj.geometry.dispose();
+    if(obj.material){
+      if(obj.material.map) obj.material.map.dispose();
+      obj.material.dispose();
+    }
+  }
+  three3D.spheres = [];
+
+  const c = currentConfigs[selectedIndex];
+  if(!c || !c.result || !c.result.nodes.length){
+    updateCamera3D();
+    return;
+  }
+  const kScale = c.result.kScale;
+  const byId = new Map();
+
+  plantas.forEach((p,i)=>{
+    const y = i*levelSpacing3D;
+    const gridHelper = new THREE.GridHelper(1600, 16, 0xC7CEDA, 0xE3E6EC);
+    gridHelper.position.set(0, y, 0);
+    group.add(gridHelper);
+  });
+
+  c.result.nodes.forEach(n=>{
+    const R = radiusFor(n.area, kScale);
+    const levelIdx = Math.max(0, plantas.indexOf(n.planta));
+    const px = n.x - TABLO_W/2;
+    const pz = n.y - TABLO_H/2;
+    const py = levelIdx * levelSpacing3D;
+
+    const colorHex = cssVarToHex(plantaColor(n.planta), '#3E6E8E');
+    const geo = new THREE.SphereGeometry(R, 24, 18);
+    const mat = new THREE.MeshStandardMaterial({color: colorHex, roughness:0.55, metalness:0.05});
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(px, py, pz);
+    mesh.userData = {name:n.id, area:n.area, planta:n.planta};
+    group.add(mesh);
+    three3D.spheres.push(mesh);
+    byId.set(n.id, {x:px, y:py, z:pz, R});
+
+    if(show3DLabels){
+      const sprite = makeTextSprite3D(`${n.id}\n${n.area} m²`);
+      sprite.position.set(px, py + R + 26, pz);
+      sprite.userData.isLabel = true;
+      group.add(sprite);
+    }
+  });
+
+  if(show3DLines){
+    (c.result.edges || edges).forEach(e=>{
+      if(e.importancia === 'negativa' || e.importancia === 'neutral') return;
+      const sId = e.source.id || e.source, tId = e.target.id || e.target;
+      const a = byId.get(sId), b = byId.get(tId);
+      if(!a || !b) return;
+      const style = IMPORTANCIA[e.importancia] || {width:1};
+      const colorHex = cssVarToHex(MATRIZ_COLOR[e.importancia] || '#C7CEDA', '#C7CEDA');
+      const radius = Math.max(0.8, style.width * 0.9);
+      const pa = new THREE.Vector3(a.x, a.y, a.z);
+      const pb = new THREE.Vector3(b.x, b.y, b.z);
+      const cyl = makeEdgeCylinder3D(pa, pb, radius, colorHex);
+      cyl.userData.isEdge = true;
+      group.add(cyl);
+    });
+  }
+
+  const spanXZ = Math.max(TABLO_W, TABLO_H);
+  const spanY = (plantas.length) * levelSpacing3D;
+  orbit3D.radius = Math.max(600, spanXZ*0.9 + spanY*0.4);
+  orbit3D.target.set(0, spanY/2, 0);
+  updateCamera3D();
+}
+
+function refresh3DIfVisible(){
+  if(document.getElementById('pane3D').classList.contains('active')){
+    build3DScene();
+  }
+}
+
+function start3DLoop(){
+  if(active3D) return;
+  active3D = true;
+  const loop = ()=>{
+    if(!active3D) return;
+    updateCamera3D();
+    three3D.renderer.render(three3D.scene, three3D.camera);
+    rafId3D = requestAnimationFrame(loop);
+  };
+  loop();
+}
+function stop3DLoop(){
+  active3D = false;
+  if(rafId3D) cancelAnimationFrame(rafId3D);
+  rafId3D = null;
+}
+
+function attach3DControls(){
+  const dom = three3D.renderer.domElement;
+  const tooltip = document.getElementById('tooltip3D');
+  dom.addEventListener('contextmenu', e=>e.preventDefault());
+
+  let dragging = false, dragButton = 0, lastX = 0, lastY = 0;
+
+  dom.addEventListener('mousedown', e=>{
+    dragging = true; dragButton = e.button; lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('mouseup', ()=>{ dragging = false; });
+  window.addEventListener('mousemove', e=>{
+    if(dragging){
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+      if(dragButton === 2){
+        const panSpeed = orbit3D.radius * 0.0015;
+        const camDir = new THREE.Vector3().subVectors(three3D.camera.position, orbit3D.target).normalize();
+        const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), camDir).normalize();
+        const up = new THREE.Vector3().crossVectors(camDir, right).normalize();
+        orbit3D.target.addScaledVector(right, -dx*panSpeed);
+        orbit3D.target.addScaledVector(up, dy*panSpeed);
+      } else {
+        orbit3D.theta -= dx * 0.006;
+        orbit3D.phi = Math.min(Math.max(orbit3D.phi - dy*0.006, 0.08), Math.PI-0.08);
+      }
+      return;
+    }
+    const rect = dom.getBoundingClientRect();
+    three3D.mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
+    three3D.mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
+    three3D.raycaster.setFromCamera(three3D.mouse, three3D.camera);
+    const hits = three3D.raycaster.intersectObjects(three3D.spheres);
+    if(hits.length){
+      const d = hits[0].object.userData;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+      tooltip.style.top = (e.clientY - rect.top + 10) + 'px';
+      tooltip.textContent = `${d.name} · ${d.area} m² · ${d.planta}`;
+    } else {
+      tooltip.style.display = 'none';
+    }
+  });
+
+  dom.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 0.9 : 1.1;
+    orbit3D.radius = Math.min(Math.max(orbit3D.radius*factor, 150), 8000);
+  }, {passive:false});
+
+  let touchLast = null, pinchStartDist = null;
+  dom.addEventListener('touchstart', e=>{
+    if(e.touches.length===1){
+      touchLast = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+    } else if(e.touches.length===2){
+      pinchStartDist = Math.hypot(
+        e.touches[0].clientX-e.touches[1].clientX,
+        e.touches[0].clientY-e.touches[1].clientY
+      );
+    }
+  }, {passive:true});
+  dom.addEventListener('touchmove', e=>{
+    if(e.touches.length===1 && touchLast){
+      const dx = e.touches[0].clientX - touchLast.x, dy = e.touches[0].clientY - touchLast.y;
+      touchLast = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+      orbit3D.theta -= dx*0.006;
+      orbit3D.phi = Math.min(Math.max(orbit3D.phi - dy*0.006, 0.08), Math.PI-0.08);
+    } else if(e.touches.length===2 && pinchStartDist!=null){
+      const dist = Math.hypot(
+        e.touches[0].clientX-e.touches[1].clientX,
+        e.touches[0].clientY-e.touches[1].clientY
+      );
+      const factor = pinchStartDist/dist;
+      orbit3D.radius = Math.min(Math.max(orbit3D.radius*factor, 150), 8000);
+      pinchStartDist = dist;
+    }
+  }, {passive:true});
+  dom.addEventListener('touchend', ()=>{ touchLast=null; pinchStartDist=null; });
+}
+
+function reset3DView(){
+  const spanXZ = Math.max(TABLO_W, TABLO_H);
+  const spanY = plantas.length * levelSpacing3D;
+  orbit3D.radius = Math.max(600, spanXZ*0.9 + spanY*0.4);
+  orbit3D.theta = Math.PI/4;
+  orbit3D.phi = Math.PI/3;
+  orbit3D.target.set(0, spanY/2, 0);
+}
+
+document.getElementById('chk3DLabels').onchange = (e)=>{
+  show3DLabels = e.target.checked;
+  refresh3DIfVisible();
+};
+document.getElementById('chk3DLines').onchange = (e)=>{
+  show3DLines = e.target.checked;
+  refresh3DIfVisible();
+};
+document.getElementById('r3DSpacing').oninput = (e)=>{
+  levelSpacing3D = +e.target.value;
+  document.getElementById('v3DSpacing').textContent = e.target.value;
+  refresh3DIfVisible();
+};
+document.getElementById('btnReset3D').onclick = ()=>{ reset3DView(); };
 
 /* =========================================================================
    9) PANEL LATERAL REDIMENSIONABLE

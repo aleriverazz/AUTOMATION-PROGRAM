@@ -402,11 +402,11 @@ const FISICA = {
   'por-decidir':        {label:'Por decidir',        distance:150},
 };
 const IMPORTANCIA = {
-  'mandatoria':  {label:'Mandatoria',  strength:1.0,  width:3,   dash:null,          color:'var(--ink)'},
-  'deseable':    {label:'Deseable',    strength:0.55, width:2.5, dash:null,          color:'var(--ink-soft)'},
-  'neutral':     {label:'Neutral',     strength:0.2,  width:1.5, dash:'0.1 3',       color:'var(--ink-faint)'},
-  'negativa':    {label:'Negativa/Separatoria', strength:0, width:2, dash:'0.1 2.5',   color:'var(--negativa)'},
-  'por-decidir': {label:'Por decidir', strength:0.1,  width:1, dash:'0.1 3.5',       color:'var(--ink-faint)'},
+  'mandatoria':  {label:'Mandatoria',  strength:1.0,  width:1.5, dash:'6 3', color:'var(--ink)'},
+  'deseable':    {label:'Deseable',    strength:0.55, width:1.5, dash:'6 3', color:'var(--ink-soft)'},
+  'neutral':     {label:'Neutral',     strength:0.2,  width:1.5, dash:'6 3', color:'var(--ink-faint)'},
+  'negativa':    {label:'Negativa/Separatoria', strength:0, width:1.5, dash:'6 3', color:'var(--negativa)'},
+  'por-decidir': {label:'Por decidir', strength:0.1,  width:1.5, dash:'6 3', color:'var(--ink-faint)'},
 };
 // Separación adicional (además de la suma de radios reales) según tipo de relación física.
 // Esto hace que la distancia entre dos espacios sea SIEMPRE radio_A + radio_B + gap,
@@ -495,7 +495,7 @@ function ejemplo(){
     {id:'Vestidor', area:6, planta:'Alta'},
     {id:'Baño principal', area:8.5, planta:'Alta'},
   ];
-    nodes = nodes.map((n,i)=>({...n, num:i+1, tipo:n.tipo||'Privado'}));
+    nodes = nodes.map((n,i)=>({...n, num:i+1, tipo:n.tipo||'Íntimo'}));
   nextNodeId = nodes.length + 1;
 
   edges = [
@@ -845,8 +845,9 @@ function extRadiusFor(area, kScale){
   return R0 + Math.max(6, R0*0.28); // "diámetro de aire" — por aquí se conectan las líneas
 }
 
-function buildOrientationArcs(n, others, kScale){
+function buildOrientationArcs(n, others, kScale, strokeScale){
   if(!others.length) return '';
+  const sc = strokeScale != null ? strokeScale : 1;
   const R0 = radiusFor(n.area, kScale);
   const ringStep = R0*0.15;
   let s = '';
@@ -857,10 +858,10 @@ function buildOrientationArcs(n, others, kScale){
     const r = Math.max(R0*0.2, R0*0.9 - i*ringStep);
     const a0 = ang + halfOpen;
     const a1 = ang - halfOpen + Math.PI*2;
-    s += `<path d="${arcD(n.x, n.y, r, a0, a1)}" fill="none" stroke="#999" stroke-width="0.6" stroke-dasharray="0.1 2.5" stroke-linecap="round"/>`;
+    s += `<path d="${arcD(n.x, n.y, r, a0, a1)}" fill="none" stroke="#999" stroke-width="${0.6*sc}" stroke-dasharray="${0.1*sc} ${2.5*sc}" stroke-linecap="round"/>`;
     const tick0 = polarXY(n.x, n.y, r - ringStep*0.4, ang);
     const tick1 = polarXY(n.x, n.y, r + ringStep*0.4, ang);
-    s += `<line x1="${tick0.x}" y1="${tick0.y}" x2="${tick1.x}" y2="${tick1.y}" stroke="#999" stroke-width="0.6" stroke-dasharray="0.1 2.5" stroke-linecap="round"/>`;
+    s += `<line x1="${tick0.x}" y1="${tick0.y}" x2="${tick1.x}" y2="${tick1.y}" stroke="#999" stroke-width="${0.6*sc}" stroke-dasharray="${0.1*sc} ${2.5*sc}" stroke-linecap="round"/>`;
   });
   return s;
 }
@@ -1040,19 +1041,19 @@ function trianglePoly(cx,cy,r,filled){
 }
 function trianglePoly(cx,cy,r,filled,sw){
   const pts = `${cx},${cy-r} ${cx+r*0.95},${cy+r*0.72} ${cx-r*0.95},${cy+r*0.72}`;
-  return `<polygon points="${pts}" fill="${filled?'#17233B':'none'}" stroke="#17233B" stroke-width="${sw}"/>`;
+  return `<polygon points="${pts}" fill="${filled?'#17233B':'#fff'}" stroke="#17233B" stroke-width="${sw}"/>`;
 }
 function glyphMarkup(key, cx, cy, r, strokeScale){
   const sc = strokeScale != null ? strokeScale : 1;
   switch(key){
-       case 'contencion-abierta': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#17233B" stroke-width="${1.3*sc}"/>`;
+       case 'contencion-abierta': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="${1.3*sc}"/>`;
     case 'contencion-cerrada': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B"/>`;
     case 'contiguo-abierta':   return trianglePoly(cx,cy,r,false,1.3*sc);
     case 'contiguo-cerrada':   return trianglePoly(cx,cy,r,true,1.3*sc);
     case 'neutro':             return `<rect x="${cx-r*0.78}" y="${cy-r*0.78}" width="${r*1.56}" height="${r*1.56}" fill="#B9BEC7"/>`;
-        case 'separacion-barrera': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#17233B" stroke-width="${1.3*sc}" stroke-dasharray="${0.1*sc} ${3*sc}" stroke-linecap="round"/>`;
+        case 'separacion-barrera': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="${1.3*sc}" stroke-dasharray="${0.1*sc} ${3*sc}" stroke-linecap="round"/>`;
     case 'separacion-locacion':return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B" stroke="#fff" stroke-width="${1.4*sc}"/>`;
-    default: return `<path d="${diamondPath(cx,cy,r)}" fill="none" stroke="#C7CEDA" stroke-width="${1*sc}"/>`;
+    default: return `<path d="${diamondPath(cx,cy,r)}" fill="#fff" stroke="#C7CEDA" stroke-width="${1*sc}"/>`;
   }
 }
 
@@ -1200,8 +1201,8 @@ function svgMatrixMotivos(motivoMap){
        if(text){
       const num = motivoMap.get(text) || '?';
       s += `<g><title>${a.id} — ${b.id}: ${text}</title>
-        <path d="${diamondPath(p.x,p.y,r)}" fill="#fff" stroke="#8A93A3" stroke-width="1"/>
-        <text x="${p.x}" y="${p.y+3}" text-anchor="middle" font-size="9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#17233B">${num}</text>
+                <path d="${diamondPath(p.x,p.y,r)}" fill="none" stroke="#8A93A3" stroke-width="1"/>
+               <text x="${p.x}" y="${p.y+3}" text-anchor="middle" font-size="9" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#B5432E" stroke="#FFFFFF" stroke-width="0.4" paint-order="stroke fill">${num}</text>
       </g>`;
     }
   });
@@ -1300,7 +1301,7 @@ function refreshMatricesIfVisible(){
 function renderTables(){
   const tb = document.querySelector('#tblNodos tbody');
   tb.innerHTML='';
-  const TIPOS = ['Público','Privado','Otro'];
+    const TIPOS = ['Social','Íntimo','Ceremonial'];
   nodes.forEach((n,i)=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td class="idx-num">${n.num}</td>
@@ -1406,8 +1407,8 @@ function exportMatricesPDF(){
       legend: `<div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchImportancia()}</div>` },
     { sub:'Relación Física', svg: svgMatrixFisica(),
       legend: `<div class="matrix-legend-list"><div class="lg-title">Relación Física</div>${legendSwatchFisica()}</div>` },
-    { sub:'Deseos y Motivos', svg: svgMatrixMotivos(motivoMap),
-      legend: `<div class="matrix-legend-list" style="min-width:280px;"><div class="lg-title">Deseos y Motivos</div>${buildMotivoListHtml(motivoMap)}</div>` },
+        { sub:'Deseos y Motivos', svg: svgMatrixMotivos(motivoMap),
+      legend: `<div class="matrix-legend-list"><div class="lg-title">Deseos y Motivos</div>${buildMotivoListHtml(motivoMap)}</div>` },
   ];
 
   document.getElementById('printArea').innerHTML = pages.map(p=>`
@@ -1451,13 +1452,24 @@ function svgTrueScaleBubbles(scaleE, layout, filterMode){
   const W = layout.bboxW*mmPerUnit + pad*2, H = layout.bboxH*mmPerUnit + pad*2;
   const tx = p => (p.x-layout.minX)*mmPerUnit + pad;
   const ty = p => (p.y-layout.minY)*mmPerUnit + pad;
-  const byId = id => layout.pts.find(n=>n.id===id);
+    const byId = id => layout.pts.find(n=>n.id===id);
+  const adjacencyMM = new Map();
+  layout.pts.forEach(n=>adjacencyMM.set(n.id, []));
+  layout.edges.forEach(e=>{
+    if(!edgeImportPassForMode(e.importancia, filterMode)) return;
+    const a = byId(e.source.id||e.source), b = byId(e.target.id||e.target);
+    if(!a||!b) return;
+    adjacencyMM.get(a.id).push(b);
+    adjacencyMM.get(b.id).push(a);
+  });
   let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" xmlns="http://www.w3.org/2000/svg">`;
 
   layout.pts.forEach((p)=>{
     const r = p.r*mmPerUnit, cx=tx(p), cy=ty(p);
     s += `<circle cx="${cx}" cy="${cy}" r="${r + Math.max(0.5, r*0.28)}" fill="none" stroke="#999" stroke-width="0.15" stroke-dasharray="0.05 0.6" stroke-linecap="round"/>`;
-        s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#666666" stroke-width="0.15"/>`;
+          s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#666666" stroke-width="0.15"/>`;
+    const othersMM = (adjacencyMM.get(p.id)||[]).map(o=>({x:tx(o), y:ty(o)}));
+    s += buildOrientationArcs({x:cx, y:cy, area:p.area}, othersMM, layout.kScale*mmPerUnit, 0.12);
 
     const maxChars = Math.max(4, Math.round(r*0.30));
     const lines = wrapWords(p.id.toUpperCase(), maxChars);
@@ -1485,10 +1497,10 @@ function svgTrueScaleBubbles(scaleE, layout, filterMode){
     const pBx=bx-ux*Rb, pBy=by-uy*Rb;
     const col = MATRIZ_COLOR[e.importancia] || '#C7CEDA';
     s += `<line x1="${pAx}" y1="${pAy}" x2="${pBx}" y2="${pBy}" stroke="${col}" stroke-width="${style.width*0.35}" stroke-linecap="round" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="0.75"/>`;
-    const mx=(pAx+pBx)/2, my=(pAy+pBy)/2;
+        const mx=(pAx+pBx)/2, my=(pAy+pBy)/2;
     const gR = 1.4;
-
-  });             s += glyphMarkup(e.fisica, mx, my, gR, 0.12);
+    s += glyphMarkup(e.fisica, mx, my, gR, 0.12);
+  });
 
   s += `</svg>`;
   return s;
@@ -1607,7 +1619,7 @@ function buildAreasTableHtml(){
     html += `<table class="areas-table">
       <thead><tr><th>#</th><th>Espacio</th><th>m²</th><th>Tipo</th></tr></thead>
       <tbody>
-        ${g.items.map(n=>`<tr><td class="idx">${String(n.num).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td><td>${n.tipo||'Privado'}</td></tr>`).join('')}
+        ${g.items.map(n=>`<tr><td class="idx">${String(n.num).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td><td>${n.tipo||'Íntimo'}</td></tr>`).join('')}
         <tr class="subtotal"><td colspan="3">Subtotal</td><td class="num">${subtotal.toFixed(1)} m²</td></tr>
       </tbody>
     </table>`;
@@ -1665,7 +1677,7 @@ function parseAreaBlocks(aoa){
       if(typeof r[1]==='string' && r[1].trim().toUpperCase()==='TOTAL') break;
       if(typeof r[0]==='number' && r[1]!=null){
         const tipoRaw = r[5]!=null ? String(r[5]).trim() : '';
-        items.push({localIndex:r[0], name:String(r[1]).trim(), area:Number(r[2])||0, tipo: tipoRaw || 'Privado'});
+        items.push({localIndex:r[0], name:String(r[1]).trim(), area:Number(r[2])||0, tipo: tipoRaw || 'Íntimo'});
       }
     }
     blocks.push({label, items});
@@ -1742,7 +1754,7 @@ function importFromWorkbook(wb){
   areaBlocks.forEach((b,bi)=>{
     lookupByBlock[bi] = {};
     b.items.forEach(it=>{
-      const node = {id:it.name, area:it.area, planta:b.label, tipo:it.tipo||'Privado', num:num++};
+      const node = {id:it.name, area:it.area, planta:b.label, tipo:it.tipo||'Íntimo', num:num++};
       nodes.push(node);
       lookupByBlock[bi][it.localIndex] = node;
     });

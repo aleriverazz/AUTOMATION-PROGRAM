@@ -175,10 +175,39 @@
     .print-foot{display:flex; gap:16px; align-items:center; margin-top:8px; padding-top:6px; width:100%; flex:none;}
   .legend-2col{display:grid; grid-template-columns:1fr 1fr; column-gap:8px;}
   .print-foot-text{font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.45;}
-  @media print{
+   @media print{
     body > *:not(#printArea){display:none !important;}
     #printArea{display:block !important;}
     @page{ size:landscape; margin:10mm; }
+
+    .print-body{
+      height:100%;
+      overflow:hidden;
+    }
+    .print-body .matrix-svg-wrap{
+      flex:1 1 auto;
+      min-width:0;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:visible;
+    }
+    .print-body .matrix-svg-wrap svg{
+      max-width:100% !important;
+      max-height:100% !important;
+      width:auto !important;
+      height:auto !important;
+    }
+    .print-body-split{ height:100%; }
+    .print-diagram-col{ height:100%; }
+    .print-diagram-col svg{
+      max-width:100% !important;
+      max-height:100% !important;
+      width:auto !important;
+      height:auto !important;
+    }
+    .print-side-col{ height:100%; overflow:hidden; }
   }
   /* ---- Vista 3D ---- */
 #pane3D.view-pane.active{display:flex; flex-direction:column;}
@@ -1005,9 +1034,13 @@ function glyphMarkup(key, cx, cy, r, strokeScale){
   }
 }
 
+function computeLabelWidth(nodeList){
+  const maxLen = nodeList.reduce((m,n)=>Math.max(m,(n.id||'').length),0);
+  return Math.min(420, Math.max(180, 40 + maxLen*6.4));
+}
 function matrixLayout(nodeList, rowH){
   const unit = rowH/2;
-  const labelW = 235;
+  const labelW = computeLabelWidth(nodeList);
   const rows = nodeList.map((n,i)=>({...n, idx:i, y: i*rowH + rowH/2}));
   const pairs = [];
   for(let i=0;i<rows.length;i++){
@@ -1038,9 +1071,13 @@ function drawLabelGrid(L){
   const totalH = L.rows.length*L.rowH;
   let s = '<g stroke="#D7DCE3" stroke-width="0.75" fill="none">';
   s += `<line x1="0" y1="0" x2="0" y2="${totalH}"/>`;
-  s += `<line x1="0" y1="0" x2="${L.width}" y2="0"/>`;
-  s += `<line x1="0" y1="${totalH}" x2="${L.width}" y2="${totalH}"/>`;
+  s += `<line x1="0" y1="0" x2="${L.labelW}" y2="0"/>`;
+  s += `<line x1="0" y1="${totalH}" x2="${L.labelW}" y2="${totalH}"/>`;
   s += `<line x1="${idxColW}" y1="0" x2="${idxColW}" y2="${totalH}"/>`;
+  for(let k=0;k<=L.rows.length;k++){
+    const y = k*L.rowH;
+    s += `<line x1="${L.labelW-4}" y1="${y}" x2="${L.labelW+4}" y2="${y}"/>`;
+  }
   for(let k=1;k<L.rows.length;k++){
     s += `<line x1="0" y1="${k*L.rowH}" x2="${L.labelW}" y2="${k*L.rowH}"/>`;
   }

@@ -1081,6 +1081,9 @@ function drawLabelGrid(L){
   for(let k=1;k<L.rows.length;k++){
     s += `<line x1="0" y1="${k*L.rowH}" x2="${L.labelW}" y2="${k*L.rowH}"/>`;
   }
+  const unit = L.rowH/2;
+  s += `<line x1="${L.labelW}" y1="0" x2="${L.labelW+unit}" y2="${L.rowH/2}"/>`;
+  s += `<line x1="${L.labelW}" y1="${totalH}" x2="${L.labelW+unit}" y2="${totalH-L.rowH/2}"/>`;
   s += '</g>';
   return s;
 }

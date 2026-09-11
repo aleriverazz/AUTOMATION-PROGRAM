@@ -890,7 +890,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
 
     s += `<g class="node-drag" data-node-id="${encodeURIComponent(n.id)}" style="cursor:grab;">`;
     s += `<circle cx="${cx}" cy="${cy}" r="${Rext}" fill="none" stroke="#999" stroke-width="0.6" stroke-dasharray="0.1 2.5" stroke-linecap="round"/>`;
-    s += `<circle cx="${cx}" cy="${cy}" r="${R0}" fill="#fff" stroke="#666666" stroke-width="1"/>`;
+        s += `<circle cx="${cx}" cy="${cy}" r="${R0}" fill="none" stroke="#666666" stroke-width="1"/>`;
     s += buildOrientationArcs(n, adjacency.get(n.id) || [], kScale);
 
     if(labelMode === 'numero'){
@@ -932,7 +932,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
 
     const mx=(pA.x+pB.x)/2, my=(pA.y+pB.y)/2;
     const gR = 4.5;
-    s += `<circle cx="${mx}" cy="${my}" r="${gR+1.5}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR)}`;
+       s += glyphMarkup(e.fisica, mx, my, gR);
   });
 
   s += `</g>`;
@@ -1036,21 +1036,21 @@ function diamondPath(cx,cy,r){
 }
 function trianglePoly(cx,cy,r,filled){
   const pts = `${cx},${cy-r} ${cx+r*0.95},${cy+r*0.72} ${cx-r*0.95},${cy+r*0.72}`;
-  return `<polygon points="${pts}" fill="${filled?'#17233B':'#fff'}" stroke="#17233B" stroke-width="1.3"/>`;
+  return `<polygon points="${pts}" fill="${filled?'#17233B':'none'}" stroke="#17233B" stroke-width="1.3"/>`;
 }
 function trianglePoly(cx,cy,r,filled,sw){
   const pts = `${cx},${cy-r} ${cx+r*0.95},${cy+r*0.72} ${cx-r*0.95},${cy+r*0.72}`;
-  return `<polygon points="${pts}" fill="${filled?'#17233B':'#fff'}" stroke="#17233B" stroke-width="${sw}"/>`;
+  return `<polygon points="${pts}" fill="${filled?'#17233B':'none'}" stroke="#17233B" stroke-width="${sw}"/>`;
 }
 function glyphMarkup(key, cx, cy, r, strokeScale){
   const sc = strokeScale != null ? strokeScale : 1;
   switch(key){
-    case 'contencion-abierta': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="${1.3*sc}"/>`;
+       case 'contencion-abierta': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#17233B" stroke-width="${1.3*sc}"/>`;
     case 'contencion-cerrada': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B"/>`;
     case 'contiguo-abierta':   return trianglePoly(cx,cy,r,false,1.3*sc);
     case 'contiguo-cerrada':   return trianglePoly(cx,cy,r,true,1.3*sc);
     case 'neutro':             return `<rect x="${cx-r*0.78}" y="${cy-r*0.78}" width="${r*1.56}" height="${r*1.56}" fill="#B9BEC7"/>`;
-    case 'separacion-barrera': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#17233B" stroke-width="${1.3*sc}" stroke-dasharray="${0.1*sc} ${3*sc}" stroke-linecap="round"/>`;
+        case 'separacion-barrera': return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#17233B" stroke-width="${1.3*sc}" stroke-dasharray="${0.1*sc} ${3*sc}" stroke-linecap="round"/>`;
     case 'separacion-locacion':return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#17233B" stroke="#fff" stroke-width="${1.4*sc}"/>`;
     default: return `<path d="${diamondPath(cx,cy,r)}" fill="none" stroke="#C7CEDA" stroke-width="${1*sc}"/>`;
   }
@@ -1457,7 +1457,7 @@ function svgTrueScaleBubbles(scaleE, layout, filterMode){
   layout.pts.forEach((p)=>{
     const r = p.r*mmPerUnit, cx=tx(p), cy=ty(p);
     s += `<circle cx="${cx}" cy="${cy}" r="${r + Math.max(0.5, r*0.28)}" fill="none" stroke="#999" stroke-width="0.15" stroke-dasharray="0.05 0.6" stroke-linecap="round"/>`;
-    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#666666" stroke-width="0.15"/>`;
+        s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#666666" stroke-width="0.15"/>`;
 
     const maxChars = Math.max(4, Math.round(r*0.30));
     const lines = wrapWords(p.id.toUpperCase(), maxChars);
@@ -1487,8 +1487,8 @@ function svgTrueScaleBubbles(scaleE, layout, filterMode){
     s += `<line x1="${pAx}" y1="${pAy}" x2="${pBx}" y2="${pBy}" stroke="${col}" stroke-width="${style.width*0.35}" stroke-linecap="round" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="0.75"/>`;
     const mx=(pAx+pBx)/2, my=(pAy+pBy)/2;
     const gR = 1.4;
-       s += `<circle cx="${mx}" cy="${my}" r="${gR+0.4}" fill="#F7F8FA" opacity="0.92"/>${glyphMarkup(e.fisica, mx, my, gR, 0.12)}`;
-  });
+
+  });             s += glyphMarkup(e.fisica, mx, my, gR, 0.12);
 
   s += `</svg>`;
   return s;

@@ -182,7 +182,7 @@
    @media print{
     body > *:not(#printArea){display:none !important;}
     #printArea{display:block !important;}
-    @page{ size:landscape; margin:10mm; }
+    @page{ size:17in 11in; margin:10mm; }
 
     .print-body{
       height:100%;
@@ -808,6 +808,12 @@ function edgeFilterPass(e){
   if(e.importancia === 'negativa' || e.importancia === 'neutral') return false;
   if(edgeFilterMode === 'mandatoria') return e.importancia === 'mandatoria';
   if(edgeFilterMode === 'deseable') return e.importancia === 'deseable';
+  return true;
+}
+function edgeImportPassForMode(imp, mode){
+  if(imp === 'negativa' || imp === 'neutral') return false;
+  if(mode === 'mandatoria') return imp === 'mandatoria';
+  if(mode === 'deseable') return imp === 'deseable';
   return true;
 }
 
@@ -1438,7 +1444,8 @@ function chooseScale(bboxWUnits, bboxHUnits, kScale, targetWmm, targetHmm){
   return STANDARD_SCALES[STANDARD_SCALES.length-1];
 }
 
-function svgTrueScaleBubbles(scaleE, layout){
+function svgTrueScaleBubbles(scaleE, layout, filterMode){
+  filterMode = filterMode || 'todas';
   const mmPerUnit = 1000/(Math.sqrt(Math.PI)*layout.kScale*scaleE);
   const pad = 10;
   const W = layout.bboxW*mmPerUnit + pad*2, H = layout.bboxH*mmPerUnit + pad*2;
@@ -1464,8 +1471,8 @@ function svgTrueScaleBubbles(scaleE, layout){
     s += `<text x="${cx}" y="${areaY}" text-anchor="middle" font-size="${Math.max(0.9,nameSize*0.7)}" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" fill="#666666">${p.area} m²</text>`;
   });
 
-      layout.edges.forEach(e=>{
-    if(e.importancia === 'negativa' || e.importancia === 'neutral') return;
+            layout.edges.forEach(e=>{
+    if(!edgeImportPassForMode(e.importancia, filterMode)) return;
     const style = IMPORTANCIA[e.importancia];
     const a = byId(e.source.id||e.source), b = byId(e.target.id||e.target);
     if(!a||!b) return;
@@ -1512,18 +1519,25 @@ function exportBubblePDF(){
 
   const layout = buildTrueScaleLayout(c.result);
   const scaleE = chooseScale(layout.bboxW, layout.bboxH, layout.kScale, 190, 148);
-  const svgMarkup = svgTrueScaleBubbles(scaleE, layout);
   const totalArea = nodes.reduce((a,n)=>a+n.area,0);
 
-    const infoBits = [
+  const infoBits = [
     fase ? `Fase: ${fase}` : '', elaboro ? `Elaboró: ${elaboro}` : ''
   ].filter(Boolean).join(' · ');
 
-  document.getElementById('printArea').innerHTML = `
+  const HOJAS = [
+    {mode:'todas',      sub:'Diagrama de burbujas · Todas'},
+    {mode:'mandatoria', sub:'Diagrama de burbujas · Mandatorias'},
+    {mode:'deseable',   sub:'Diagrama de burbujas · Deseables'},
+  ];
+
+  const pagesHtml = HOJAS.map(h=>{
+    const svgMarkup = svgTrueScaleBubbles(scaleE, layout, h.mode);
+    return `
     <div class="print-page">
       <div class="print-head">
         <span class="t1">${proyecto}</span>
-                <span class="t2">Diagrama de burbujas</span>
+        <span class="t2">${h.sub}</span>
         <span class="t3">${infoBits}</span>
       </div>
       <div class="print-body-split">
@@ -1546,8 +1560,10 @@ function exportBubblePDF(){
           ${nodes.length} espacios · ${totalArea.toFixed(1)} m² totales
         </div>
       </div>
-    </div>
-  `;
+    </div>`;
+  }).join('');
+
+  document.getElementById('printArea').innerHTML = pagesHtml;
   window.print();
 }
 

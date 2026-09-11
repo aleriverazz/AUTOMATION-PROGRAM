@@ -805,13 +805,13 @@ let labelMode = 'nombre';
 let reticulaVisible = true;
 let edgeFilterMode = 'todas'; // 'todas' | 'mandatoria' | 'deseable'
 function edgeFilterPass(e){
-  if(e.importancia === 'negativa' || e.importancia === 'neutral') return false;
+  if(e.importancia === 'negativa' || e.importancia === 'neutral' || e.importancia === 'por-decidir') return false;
   if(edgeFilterMode === 'mandatoria') return e.importancia === 'mandatoria';
   if(edgeFilterMode === 'deseable') return e.importancia === 'deseable';
   return true;
 }
 function edgeImportPassForMode(imp, mode){
-  if(imp === 'negativa' || imp === 'neutral') return false;
+  if(imp === 'negativa' || imp === 'neutral' || imp === 'por-decidir') return false;
   if(mode === 'mandatoria') return imp === 'mandatoria';
   if(mode === 'deseable') return imp === 'deseable';
   return true;
@@ -1017,7 +1017,7 @@ function renderLineStyleControls(){
 
 function renderLegend(){
   const el = document.getElementById('legendMini');
-  el.innerHTML = Object.entries(IMPORTANCIA).map(([k,v])=>
+ el.innerHTML = Object.entries(IMPORTANCIA).filter(([k])=>k!=='neutral' && k!=='por-decidir').map(([k,v])=>
     `<div><span class="sw" style="border-top-color:${MATRIZ_COLOR[k]||'#C7CEDA'}; border-top-style:${v.dash?'dotted':'solid'};"></span>${v.label}</div>`
   ).join('');
 }

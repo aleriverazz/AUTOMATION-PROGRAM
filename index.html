@@ -97,6 +97,10 @@
     border:none; border-right:1px solid var(--border); border-radius:0;
   }
   .view-tabs button.active{color:var(--ink); background:#fff; box-shadow:inset 0 -2px 0 var(--ink);}
+    .view-tabs button.active{color:var(--ink); background:#fff; box-shadow:inset 0 -2px 0 var(--ink);}
+  .edge-tab-btn{font:600 11px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase; padding:12px 20px; background:transparent; color:var(--ink-soft); border:none; border-right:1px solid var(--border); border-radius:0;}
+  .edge-tab-btn.active{color:var(--ink); background:#fff; box-shadow:inset 0 -2px 0 var(--ink);}
+  .edge-tab-btn:hover{opacity:1; color:var(--ink);}
   .view-tabs button:hover{opacity:1; color:var(--ink);}
   .view-pane{display:none;}
   .view-pane.active{display:block;}
@@ -304,7 +308,12 @@
       <button class="tab-btn" data-view="3d" type="button">3D</button>
     </div>
 
-    <div class="view-pane active" id="paneBurbujas">
+        <div class="view-pane active" id="paneBurbujas">
+            <div class="view-tabs" id="edgeFilterTabs">
+        <button class="edge-tab-btn active" data-filter="todas" type="button">Todas</button>
+        <button class="edge-tab-btn" data-filter="mandatoria" type="button">Mandatorias</button>
+        <button class="edge-tab-btn" data-filter="deseable" type="button">Deseables</button>
+      </div>
       <div class="toolbar">
         <div class="field">N.º variantes <input type="range" id="rNumConfigs" min="2" max="8" value="4"><span class="val" id="vNumConfigs">4</span></div>
         <div class="field">Repulsión general <input type="range" id="rCharge" min="40" max="260" value="130"><span class="val" id="vCharge">130</span></div>
@@ -677,9 +686,9 @@ function buildSimulation(seedIndex, charge, W, H){
 // intercambio). Por eso NO se aplica a los ~160 intentos crudos, solo a
 // un puñado de los ya más prometedores (ver generateConfigs).
 function refineByUntangling(result){
-  for(let pass=0; pass<4; pass++){
+  for(let pass=0; pass<25; pass++){
     const before = countCrossings(result);
-    untangleCrossings(result, 10);
+    untangleCrossings(result, 30);
     result.kScale *= applyCollisionsAndTabloid(result.nodes, result.kScale);
     if(countCrossings(result) >= before) break; // ya convergió, no seguir gastando ciclos
   }
@@ -704,9 +713,9 @@ function pointSegDist(px,py,x1,y1,x2,y2){
 function countCrossings(result){
   const idx = new Map(result.nodes.map(n=>[n.id,n]));
   const kScale = result.kScale;
-  const segs = [];
-    result.edges.forEach(e=>{
-    if(e.importancia === 'negativa' || e.importancia === 'neutral') return; // no se dibujan, no cuentan
+   const segs = [];
+  result.edges.forEach(e=>{
+    if(!edgeFilterPass(e)) return;
     const a = idx.get(e.source.id||e.source), b = idx.get(e.target.id||e.target);
     if(a&&b) segs.push([a,b]);
   });
@@ -760,7 +769,7 @@ function signatureOf(result){
 
 function generateConfigs(count, chargeStrength){
   const W=1440,H=932;
-  const tries = Math.max(count*40, 160);
+  const tries = Math.max(count*90, 400);
   const candidates=[];
   for(let i=0;i<tries;i++){
     const r = buildSimulation(i, chargeStrength, W, H);
@@ -768,7 +777,7 @@ function generateConfigs(count, chargeStrength){
   }
   // Solo refinamos (destrabado, caro) a los candidatos ya prometedores.
   candidates.sort((a,b)=> a.crossings-b.crossings);
-  const poolSize = Math.min(candidates.length, Math.max(count*3, 12));
+    const poolSize = Math.min(candidates.length, Math.max(count*8, 40));
   const pool = candidates.slice(0, poolSize);
   pool.forEach(c=>{
     refineByUntangling(c.result);
@@ -794,6 +803,13 @@ let currentConfigs = [];
 let selectedIndex = 0;
 let labelMode = 'nombre';
 let reticulaVisible = true;
+let edgeFilterMode = 'todas'; // 'todas' | 'mandatoria' | 'deseable'
+function edgeFilterPass(e){
+  if(e.importancia === 'negativa' || e.importancia === 'neutral') return false;
+  if(edgeFilterMode === 'mandatoria') return e.importancia === 'mandatoria';
+  if(edgeFilterMode === 'deseable') return e.importancia === 'deseable';
+  return true;
+}
 
 function polarXY(cx,cy,r,ang){ return {x:cx+r*Math.cos(ang), y:cy+r*Math.sin(ang)}; }
 function arcD(cx,cy,r,a0,a1){
@@ -847,10 +863,10 @@ function svgFor(result, W=1440, H=932, interactive=false){
   const kScale = result.kScale;
   const nodeById = new Map(result.nodes.map(n=>[n.id,n]));
 
-  const adjacency = new Map();
+   const adjacency = new Map();
   result.nodes.forEach(n=>adjacency.set(n.id, []));
   result.edges.forEach(e=>{
-        if(e.importancia === 'negativa' || e.importancia === 'neutral') return;
+    if(!edgeFilterPass(e)) return;
     const a = typeof e.source==='object'? nodeById.get(e.source.id) : nodeById.get(e.source);
     const b = typeof e.target==='object'? nodeById.get(e.target.id) : nodeById.get(e.target);
     if(!a||!b) return;
@@ -891,9 +907,9 @@ function svgFor(result, W=1440, H=932, interactive=false){
     s += `</g>`;
   });
 
-  // ----- DIBUJAR ARISTAS (LÍNEAS Y GLIFOS) DESPUÉS -----
-    result.edges.forEach(e=>{
-    if(e.importancia === 'negativa' || e.importancia === 'neutral') return;
+    // ----- DIBUJAR ARISTAS (LÍNEAS Y GLIFOS) DESPUÉS -----
+  result.edges.forEach(e=>{
+    if(!edgeFilterPass(e)) return;
     const style = IMPORTANCIA[e.importancia];
     const a = typeof e.source==='object'? nodeById.get(e.source.id) : nodeById.get(e.source);
     const b = typeof e.target==='object'? nodeById.get(e.target.id) : nodeById.get(e.target);
@@ -1832,6 +1848,19 @@ document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
   el.oninput = ()=>{ val.textContent = el.value; };
 });
 document.getElementById('rLabelMode').onchange = (e)=>{ labelMode = e.target.value; renderGrid(); renderDetail(); };
+document.querySelectorAll('#edgeFilterTabs .edge-tab-btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('#edgeFilterTabs .edge-tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    edgeFilterMode = btn.dataset.filter;
+    currentConfigs.forEach(c=>{
+      c.crossings = countCrossings(c.result);
+      c.score = scoreLayout(c.result);
+    });
+    renderGrid();
+    renderDetail();
+  };
+});
 document.getElementById('chkReticula').onchange = (e)=>{ reticulaVisible = e.target.checked; renderDetail(); };
 document.getElementById('fMotivos').addEventListener('input', refreshMatricesIfVisible);
 document.getElementById('fProyecto').addEventListener('input', refreshMatricesIfVisible);

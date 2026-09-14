@@ -1363,10 +1363,11 @@ function currentPayload(){
     plantaColors,
     nodes,
     edges: edges.map(e=>({source:e.source.id||e.source, target:e.target.id||e.target, motivo:e.motivo, fisica:e.fisica, importancia:e.importancia})),
-    variante: c ? {
+       variante: c ? {
       index: selectedIndex+1,
       cumplimiento: c.score,
       cruces: c.crossings,
+      kScale: c.result.kScale,
       nodes: c.result.nodes.map(n=>({id:n.id, num:n.num, area:n.area, planta:n.planta, x:Math.round(n.x), y:Math.round(n.y)}))
     } : null,
     savedAt: new Date().toISOString()
@@ -1993,6 +1994,23 @@ async function ghRefreshList(){
   }
 }
 
+function restoreVariante(payload){
+  const v = payload.variante;
+  if(!v || !v.kScale){ autoGenerate(); return; }
+  const posById = new Map(v.nodes.map(n=>[n.id, n]));
+  const simNodes = nodes.map(n=>{
+    const p = posById.get(n.id);
+    return {...n, x: p ? p.x : TABLO_W/2, y: p ? p.y : TABLO_H/2};
+  });
+  const result = {nodes: simNodes, edges: edges.map(e=>({...e})), kScale: v.kScale};
+  currentConfigs = [{result, crossings: countCrossings(result), score: scoreLayout(result)}];
+  selectedIndex = 0;
+  renderGrid();
+  renderDetail();
+  refreshMatricesIfVisible();
+  refresh3DIfVisible();
+}
+
 async function ghLoadEstudio(){
   const cfg = ghConfig();
   const sel = document.getElementById('ghList');
@@ -2017,11 +2035,11 @@ async function ghLoadEstudio(){
       if(num > maxNum) maxNum = num;
       return {...n, num};
     });
-    nextNodeId = maxNum + 1;
+        nextNodeId = maxNum + 1;
     edges = payload.edges || [];
     renderPlantaChips();
     renderTables();
-    autoGenerate();
+    restoreVariante(payload);
     ghStatus(`cargado: ${slug}`);
   }catch(err){
     ghStatus('error al cargar: '+err.message, true);

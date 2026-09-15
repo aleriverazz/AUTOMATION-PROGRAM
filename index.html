@@ -62,7 +62,21 @@
   @media (max-width:860px){ main{grid-template-columns:1fr;} #resizer{display:none;} }
   #resizer{cursor:col-resize; background:var(--border); position:relative;}
   #resizer:hover, #resizer.dragging{background:var(--ink-soft);}
-  aside{border-right:2px solid var(--ink); background:var(--panel); padding:16px; overflow:auto;}
+  aside{border-right:2px solid var(--ink); background:var(--panel); padding:16px; overflow:auto; position:relative;}
+  body.aside-collapsed main{grid-template-columns:0 0 1fr;}
+  body.aside-collapsed aside, body.aside-collapsed #resizer{display:none;}
+  #btnCollapseAside{
+    position:sticky; top:0; float:right; margin:-6px -6px 6px 0;
+    background:transparent; color:var(--ink-soft); border:1px solid var(--border);
+    font:600 11px var(--mono); padding:4px 8px; cursor:pointer;
+  }
+  #btnCollapseAside:hover{color:var(--ink); border-color:var(--ink-soft);}
+  #btnShowAside{
+    display:none; position:fixed; left:8px; top:76px; z-index:10;
+    background:var(--ink); color:var(--panel); border:1px solid var(--ink);
+    font:600 11px var(--mono); padding:8px 6px; cursor:pointer;
+  }
+  body.aside-collapsed #btnShowAside{display:block;}
   .section-title{
     font:700 11px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft);
     margin:18px 0 8px; display:flex; align-items:center; justify-content:space-between;
@@ -80,13 +94,22 @@
     text-align:center;
     width:26px;
   }
-    /* NOTA: columna "Planta" oculta temporalmente en la tabla de espacios (tblNodos).
-     Para volver a mostrarla: borra esta línea ".planta-col{display:none;}"
-     (los chips de Plantas/Niveles arriba NO se ven afectados por esto). */
-  .planta-col{display:none;}
+      /* Columna "Planta" visible en la tabla de espacios (antes se ocultaba con display:none). */
   .row-del{cursor:pointer; color:var(--ink-faint); font-family:var(--mono); font-size:14px; text-align:center;}
   .row-del:hover{color:var(--negativa);}
   .add-row{font:11px var(--mono); color:var(--ink-soft); background:none; border:1px dashed var(--border); width:100%; padding:6px; margin-top:6px; text-transform:none; letter-spacing:0;}
+    .col-add{cursor:pointer; color:var(--ink-soft); font-weight:700; padding:0 4px;}
+  .col-add:hover{color:var(--ink);}
+  .custom-col-head{position:relative;}
+  .custom-col-head .col-del{cursor:pointer; color:var(--ink-faint); margin-left:4px; opacity:0; transition:opacity .1s;}
+  .custom-col-head:hover .col-del{opacity:1;}
+  .custom-col-head .col-del:hover{color:var(--negativa);}
+    .col-chip{display:inline-flex; align-items:center; gap:5px; font:11px var(--mono); border:1px solid var(--border); padding:3px 7px; background:#fff;}
+  .col-chip.hidden-col{opacity:.45; border-style:dashed;}
+  .col-chip .col-name{cursor:pointer;}
+  .col-chip .col-name:hover{color:var(--ink);}
+  .col-chip .col-icon{cursor:pointer; color:var(--ink-faint);}
+  .col-chip .col-icon:hover{color:var(--ink);}
   .legend-mini{font:11px var(--mono); color:var(--ink-soft); line-height:1.8; margin-top:6px;}
   .legend-mini span.sw{display:inline-block; width:18px; height:0; border-top-width:2px; border-top-style:solid; margin-right:6px; vertical-align:middle;}
   .viewer{display:flex; flex-direction:column;}
@@ -252,17 +275,20 @@
 </header>
 
 <main>
+  <button id="btnShowAside" title="Mostrar panel">▶</button>
   <aside>
-    <div class="section-title">Plantas / Niveles<span></span></div>
+    <button id="btnCollapseAside" title="Ocultar panel">◀</button>
+        <div class="section-title">Tabla de Áreas<span></span></div>
     <div id="plantaChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
     <div style="display:flex; gap:6px; margin-bottom:4px;">
-      <input id="newPlantaName" placeholder="ej. Nivel 2" style="flex:1; font:12px var(--sans); border:1px solid var(--border); padding:5px 7px; background:#fff;">
+      <input id="newPlantaName" placeholder="ALTURA DEL 3D" style="flex:1; font:12px var(--sans); border:1px solid var(--border); padding:5px 7px; background:#fff;">
       <button class="ghost" id="btnAddPlanta" style="padding:6px 10px;">+ agregar</button>
     </div>
 
-    <div class="section-title">Nodos (espacios)<span></span></div>
-        <table id="tblNodos">
-      <thead><tr><th>#</th><th>Espacio</th><th>m²</th><th class="planta-col">Planta</th><th>Tipo</th><th></th></tr></thead>
+        <div class="section-title">Nodos (espacios)<span></span></div>
+    <div id="colManager" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;"></div>
+    <table id="tblNodos">
+      <thead><tr id="tblNodosHead"></tr></thead>
       <tbody></tbody>
     </table>
     <button class="add-row" data-add="node">+ agregar espacio</button>
@@ -368,10 +394,19 @@
             <input type="checkbox" id="chk3DLines" checked> Relaciones
           </label>
         </div>
-        <div class="field">
+                <div class="field">
           Espaciado entre plantas
           <input type="range" id="r3DSpacing" min="100" max="600" step="10" value="300">
           <span class="val" id="v3DSpacing">300</span>
+        </div>
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+            <input type="checkbox" id="chk3DSnap"> Ajustar a
+          </label>
+          <select id="sel3DSnap">
+            <option value="25">25 cm</option>
+            <option value="50">50 cm</option>
+          </select>
         </div>
         <div class="tb-spacer"></div>
         <button class="ghost" id="btnReset3D">Restablecer vista</button>
@@ -437,21 +472,151 @@ function plantaColor(planta){
   const i = Math.max(0, plantas.indexOf(planta));
   return PLANTA_PALETTE[i % PLANTA_PALETTE.length];
 }
+let plantaAlturas = {}; // override manual de altura base (cm) por planta, para la vista 3D
+function getPlantaAltura(planta){
+  if(plantaAlturas[planta] != null) return plantaAlturas[planta];
+  const i = Math.max(0, plantas.indexOf(planta));
+  return i * levelSpacing3D;
+}
+let plantaAlturaLabels = {}; // nombre editable del parámetro 3D, independiente del nombre de planta
+function getAlturaLabel(planta, i){
+  if(plantaAlturaLabels[planta] != null) return plantaAlturaLabels[planta];
+  return 'Altura ' + (i+1);
+}
 
 /* =========================================================================
    2) DATOS
    ========================================================================= */
 let nodes = [];
 let edges = [];
-let plantas = ['Baja','Alta'];
+let plantas = [];
 let nextNodeId = 1;
+let customColumns = []; // {key, label, type:'text'|'select', options:[], hidden} — columnas del usuario
+let TIPOS = ['Social','Íntimo','Ceremonial']; // opciones de la columna "Tipo", editable
+let colConfig = {
+  planta: {label:'3D', hidden:false},
+  tipo:   {label:'Tipo', hidden:false}
+};
+
+function renderNodeTableHead(){
+  const tr = document.getElementById('tblNodosHead');
+  let s = `<th>#</th><th>Espacio</th><th>m²</th>`;
+  if(!colConfig.planta.hidden) s += `<th class="planta-col">${colConfig.planta.label}</th>`;
+  if(!colConfig.tipo.hidden) s += `<th>${colConfig.tipo.label}</th>`;
+  customColumns.forEach(col=>{ if(!col.hidden) s += `<th>${col.label}</th>`; });
+  s += `<th></th>`;
+  tr.innerHTML = s;
+}
+
+function promptOptions(current){
+  const raw = prompt('Opciones separadas por coma:', (current||[]).join(', '));
+  if(raw==null) return null;
+  return raw.split(',').map(s=>s.trim()).filter(Boolean);
+}
+
+function renderColManager(){
+  const el = document.getElementById('colManager');
+  let s = '';
+
+  s += `<span class="col-chip${colConfig.planta.hidden?' hidden-col':''}">
+    <span class="col-name" data-rename="planta">${colConfig.planta.label}</span>
+    <span class="col-icon" data-toggle="planta" title="Mostrar/ocultar">${colConfig.planta.hidden?'🚫':'👁'}</span>
+  </span>`;
+
+  s += `<span class="col-chip${colConfig.tipo.hidden?' hidden-col':''}">
+    <span class="col-name" data-rename="tipo">${colConfig.tipo.label}</span>
+    <span class="col-icon" data-toggle="tipo" title="Mostrar/ocultar">${colConfig.tipo.hidden?'🚫':'👁'}</span>
+    <span class="col-icon" data-options="tipo" title="Editar opciones">⋯</span>
+  </span>`;
+
+  customColumns.forEach((col,ci)=>{
+    s += `<span class="col-chip${col.hidden?' hidden-col':''}">
+      <span class="col-name" data-rename-custom="${ci}">${col.label}</span>
+      <span class="col-icon" data-toggle-custom="${ci}" title="Mostrar/ocultar">${col.hidden?'🚫':'👁'}</span>
+      ${col.type==='select' ? `<span class="col-icon" data-options-custom="${ci}" title="Editar opciones">⋯</span>` : ''}
+      <span class="col-icon" data-del-custom="${ci}" title="Eliminar columna">✕</span>
+    </span>`;
+  });
+
+  s += `<span class="col-chip"><span class="col-add" id="btnAddColumn" title="Agregar columna">+ columna</span></span>`;
+  el.innerHTML = s;
+
+  el.querySelectorAll('[data-toggle]').forEach(x=>{
+    x.onclick = ()=>{ colConfig[x.dataset.toggle].hidden = !colConfig[x.dataset.toggle].hidden; renderColManager(); renderTables(); };
+  });
+  el.querySelectorAll('[data-rename]').forEach(x=>{
+    x.onclick = ()=>{
+      const key = x.dataset.rename;
+      const val = prompt('Nuevo nombre:', colConfig[key].label);
+      if(val && val.trim()){ colConfig[key].label = val.trim(); renderColManager(); renderTables(); }
+    };
+  });
+  el.querySelector('[data-options="tipo"]').onclick = ()=>{
+    const opts = promptOptions(TIPOS);
+    if(opts && opts.length){ TIPOS = opts; renderTables(); }
+  };
+  el.querySelectorAll('[data-toggle-custom]').forEach(x=>{
+    x.onclick = ()=>{
+      const ci = +x.dataset.toggleCustom;
+      customColumns[ci].hidden = !customColumns[ci].hidden;
+      renderColManager(); renderTables();
+    };
+  });
+  el.querySelectorAll('[data-rename-custom]').forEach(x=>{
+    x.onclick = ()=>{
+      const ci = +x.dataset.renameCustom;
+      const val = prompt('Nuevo nombre:', customColumns[ci].label);
+      if(val && val.trim()){ customColumns[ci].label = val.trim(); renderColManager(); renderTables(); }
+    };
+  });
+  el.querySelectorAll('[data-options-custom]').forEach(x=>{
+    x.onclick = ()=>{
+      const ci = +x.dataset.optionsCustom;
+      const opts = promptOptions(customColumns[ci].options);
+      if(opts && opts.length){ customColumns[ci].options = opts; renderTables(); }
+    };
+  });
+  el.querySelectorAll('[data-del-custom]').forEach(x=>{
+    x.onclick = ()=>{
+      const ci = +x.dataset.delCustom;
+      const key = customColumns[ci].key;
+      customColumns.splice(ci,1);
+      nodes.forEach(n=>{ if(n.custom) delete n.custom[key]; });
+      renderColManager(); renderTables();
+    };
+  });
+  document.getElementById('btnAddColumn').onclick = ()=>{
+    const label = prompt('Nombre de la nueva columna:');
+    if(!label || !label.trim()) return;
+    const isList = confirm('¿Es una lista desplegable con opciones? Aceptar = Lista · Cancelar = Texto libre');
+    let options = [];
+    if(isList){
+      options = promptOptions([]) || [];
+      if(!options.length) return;
+    }
+    customColumns.push({key:'c_'+Date.now(), label: label.trim(), type: isList?'select':'text', options, hidden:false});
+    nodes.forEach(n=>{ if(!n.custom) n.custom={}; });
+    renderColManager();
+    renderTables();
+  };
+}
 
 function renderPlantaChips(){
   const el = document.getElementById('plantaChips');
   el.innerHTML = plantas.map((p,i)=>`
-    <span style="display:inline-flex; align-items:center; gap:6px; font:11px var(--mono); border:1px solid var(--border); padding:4px 8px; background:#fff;">
-      <input type="color" data-color-planta="${i}" value="${plantaColor(p)}" style="width:16px; height:16px; padding:0; border:none; cursor:pointer;">
-      ${p}<span data-del-planta="${i}" style="cursor:pointer; color:var(--ink-faint);" title="Quitar planta">✕</span>
+    <span style="display:flex; flex-direction:column; gap:5px; font:11px var(--mono); border:1px solid var(--border); padding:6px 8px; background:#fff;">
+      <span style="display:flex; align-items:center; gap:6px;">
+        <input type="color" data-color-planta="${i}" value="${plantaColor(p)}" style="width:16px; height:16px; padding:0; border:none; cursor:pointer;">
+        ${p}
+        <span data-del-planta="${i}" style="cursor:pointer; color:var(--ink-faint); margin-left:auto;" title="Quitar planta">✕</span>
+      </span>
+      <span style="display:flex; flex-direction:column; gap:4px; padding-top:5px; border-top:1px dashed var(--border);">
+        <span style="font:9px var(--mono); text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint);">Parámetros 3D</span>
+        <span style="display:flex; align-items:center; gap:6px;">
+          <span data-rename-altura="${i}" style="cursor:pointer; flex:1; color:var(--ink);" title="Renombrar">${getAlturaLabel(p,i)}</span>
+          <input type="number" step="5" data-altura-planta="${i}" value="${getPlantaAltura(p)}" title="Altura base (cm) en la vista 3D" style="width:56px; font:11px var(--mono); border:1px solid var(--border); padding:2px 3px;">
+        </span>
+      </span>
     </span>`).join('');
   el.querySelectorAll('[data-del-planta]').forEach(x=>{
     x.onclick = ()=>{
@@ -460,6 +625,8 @@ function renderPlantaChips(){
       const removed = plantas[i];
       plantas.splice(i,1);
       delete plantaColors[removed];
+      delete plantaAlturas[removed];
+      delete plantaAlturaLabels[removed];
       nodes.forEach(n=>{ if(n.planta===removed) n.planta = plantas[0]; });
       renderPlantaChips(); renderTables(); autoGenerate();
     };
@@ -472,28 +639,43 @@ function renderPlantaChips(){
       refreshMatricesIfVisible();
     };
   });
+  el.querySelectorAll('[data-altura-planta]').forEach(x=>{
+    x.onchange = ()=>{
+      const p = plantas[+x.dataset.alturaPlanta];
+      plantaAlturas[p] = parseFloat(x.value) || 0;
+      refresh3DIfVisible();
+    };
+  });
+  el.querySelectorAll('[data-rename-altura]').forEach(x=>{
+    x.onclick = ()=>{
+      const i = +x.dataset.renameAltura;
+      const p = plantas[i];
+      const val = prompt('Nuevo nombre:', getAlturaLabel(p,i));
+      if(val && val.trim()){ plantaAlturaLabels[p] = val.trim(); renderPlantaChips(); }
+    };
+  });
 }
 
 function ejemplo(){
-  plantas = ['Baja','Alta'];
-  plantaColors = {Baja: PLANTA_PALETTE[0], Alta: PLANTA_PALETTE[1]};
+  plantas = ['Altura 1','Altura 2'];
+  plantaColors = {'Altura 1': PLANTA_PALETTE[0], 'Altura 2': PLANTA_PALETTE[1]};
   nodes = [
-    {id:'Cochera', area:28, planta:'Baja'},
-    {id:'Vestíbulo', area:3.5, planta:'Baja'},
-    {id:'Medio baño', area:2.5, planta:'Baja'},
-    {id:'Sala', area:14, planta:'Baja'},
-    {id:'Comedor', area:12, planta:'Baja'},
-    {id:'Cocina', area:10, planta:'Baja'},
-    {id:'Lavado', area:4, planta:'Baja'},
-    {id:'Escalera', area:3, planta:'Baja'},
-    {id:'Patio', area:35, planta:'Baja'},
-    {id:'Hall alto', area:7, planta:'Alta'},
-    {id:'Oficina', area:9, planta:'Alta'},
-    {id:'Rec. secundaria', area:12, planta:'Alta'},
-    {id:'Baño completo', area:4.5, planta:'Alta'},
-    {id:'Rec. principal', area:15, planta:'Alta'},
-    {id:'Vestidor', area:6, planta:'Alta'},
-    {id:'Baño principal', area:8.5, planta:'Alta'},
+    {id:'Cochera', area:28, planta:'Altura 1'},
+    {id:'Vestíbulo', area:3.5, planta:'Altura 1'},
+    {id:'Medio baño', area:2.5, planta:'Altura 1'},
+    {id:'Sala', area:14, planta:'Altura 1'},
+    {id:'Comedor', area:12, planta:'Altura 1'},
+    {id:'Cocina', area:10, planta:'Altura 1'},
+    {id:'Lavado', area:4, planta:'Altura 1'},
+    {id:'Escalera', area:3, planta:'Altura 1'},
+    {id:'Patio', area:35, planta:'Altura 1'},
+    {id:'Hall alto', area:7, planta:'Altura 2'},
+    {id:'Oficina', area:9, planta:'Altura 2'},
+    {id:'Rec. secundaria', area:12, planta:'Altura 2'},
+    {id:'Baño completo', area:4.5, planta:'Altura 2'},
+    {id:'Rec. principal', area:15, planta:'Altura 2'},
+    {id:'Vestidor', area:6, planta:'Altura 2'},
+    {id:'Baño principal', area:8.5, planta:'Altura 2'},
   ];
     nodes = nodes.map((n,i)=>({...n, num:i+1, tipo:n.tipo||'Íntimo'}));
   nextNodeId = nodes.length + 1;
@@ -1299,27 +1481,51 @@ function refreshMatricesIfVisible(){
    5) TABLAS EDITABLES (resto del código idéntico al original)
    ========================================================================= */
 function renderTables(){
+  renderNodeTableHead();
+  renderColManager();
   const tb = document.querySelector('#tblNodos tbody');
   tb.innerHTML='';
-    const TIPOS = ['Social','Íntimo','Ceremonial'];
   nodes.forEach((n,i)=>{
     const tr = document.createElement('tr');
+    let mid = '';
+    if(!colConfig.planta.hidden){
+      mid += `<td class="planta-col"><select data-i="${i}" data-f="planta">
+        ${plantas.map(p=>`<option ${n.planta===p?'selected':''}>${p}</option>`).join('')}
+      </select></td>`;
+    }
+    if(!colConfig.tipo.hidden){
+      mid += `<td><select data-i="${i}" data-f="tipo">
+        ${TIPOS.map(t=>`<option ${n.tipo===t?'selected':''}>${t}</option>`).join('')}
+      </select></td>`;
+    }
+    customColumns.forEach(col=>{
+      if(col.hidden) return;
+      const val = (n.custom && n.custom[col.key]) || '';
+      if(col.type==='select'){
+        mid += `<td><select data-i="${i}" data-col="${col.key}">
+          <option value=""></option>
+          ${col.options.map(o=>`<option ${val===o?'selected':''}>${o}</option>`).join('')}
+        </select></td>`;
+      } else {
+        mid += `<td><input value="${val}" data-i="${i}" data-col="${col.key}"></td>`;
+      }
+    });
     tr.innerHTML = `<td class="idx-num">${n.num}</td>
       <td><input value="${n.id}" data-i="${i}" data-f="id"></td>
       <td class="num"><input type="number" step="0.5" value="${n.area}" data-i="${i}" data-f="area"></td>
-      <td class="planta-col"><select data-i="${i}" data-f="planta">
-        ${plantas.map(p=>`<option ${n.planta===p?'selected':''}>${p}</option>`).join('')}
-      </select></td>
-      <td><select data-i="${i}" data-f="tipo">
-        ${TIPOS.map(t=>`<option ${n.tipo===t?'selected':''}>${t}</option>`).join('')}
-      </select></td>
+      ${mid}
       <td class="row-del" data-del="${i}">✕</td>`;
     tb.appendChild(tr);
   });
-  tb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
+  tb.querySelectorAll('input[data-f],select[data-f]').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, f=e.target.dataset.f;
     nodes[i][f] = f==='area' ? parseFloat(e.target.value)||0 : e.target.value;
     autoGenerate();
+  });
+  tb.querySelectorAll('input[data-col],select[data-col]').forEach(el=>el.onchange = e=>{
+    const i=+e.target.dataset.i, key=e.target.dataset.col;
+    if(!nodes[i].custom) nodes[i].custom={};
+    nodes[i].custom[key] = e.target.value;
   });
   tb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
     nodes.splice(+e.target.dataset.del,1); renderTables(); autoGenerate();
@@ -1866,7 +2072,7 @@ document.getElementById('btnExportBubblePDF').onclick = exportBubblePDF;
 document.getElementById('btnExportAreasPDF').onclick = exportAreasPDF;
 document.getElementById('btnExportMatricesPDF').onclick = exportMatricesPDF;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
-    if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], tipo:'Privado', num:nextNodeId++});
+        if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], tipo:TIPOS[0]||'', num:nextNodeId++, custom:{}});
   else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});
   renderTables();
   autoGenerate();
@@ -1902,6 +2108,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     const view = btn.dataset.view;
     const paneId = view==='burbujas' ? 'paneBurbujas' : (view==='matrices' ? 'paneMatrices' : 'pane3D');
     document.getElementById(paneId).classList.add('active');
+    setAsideCollapsed(view !== 'burbujas'); // abierto en Burbujas, cerrado en Matrices/3D por default
     if(view==='matrices') renderMatrices();
     if(view==='3d'){
       init3DIfNeeded();
@@ -2199,8 +2406,8 @@ function build3DScene(){
   const kScale = c.result.kScale;
   const byId = new Map();
 
-  plantas.forEach((p,i)=>{
-    const y = i*levelSpacing3D;
+    plantas.forEach((p)=>{
+    const y = getPlantaAltura(p);
     const gridHelper = new THREE.GridHelper(1600, 16, 0xC7CEDA, 0xE3E6EC);
     gridHelper.position.set(0, y, 0);
     group.add(gridHelper);
@@ -2208,17 +2415,18 @@ function build3DScene(){
 
   c.result.nodes.forEach(n=>{
     const R = radiusFor(n.area, kScale);
-    const levelIdx = Math.max(0, plantas.indexOf(n.planta));
     const px = n.x - TABLO_W/2;
     const pz = n.y - TABLO_H/2;
-    const py = levelIdx * levelSpacing3D;
+    const baseY = getPlantaAltura(n.planta);
+    const ajuste = n.alturaAjuste || 0;
+    const py = baseY + ajuste;
 
     const colorHex = cssVarToHex(plantaColor(n.planta), '#3E6E8E');
     const geo = new THREE.SphereGeometry(R, 24, 18);
     const mat = new THREE.MeshStandardMaterial({color: colorHex, roughness:0.55, metalness:0.05});
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(px, py, pz);
-    mesh.userData = {name:n.id, area:n.area, planta:n.planta};
+    mesh.userData = {name:n.id, area:n.area, planta:n.planta, nodeId:n.id, baseY, ajuste};
     group.add(mesh);
     three3D.spheres.push(mesh);
     byId.set(n.id, {x:px, y:py, z:pz, R});
@@ -2283,13 +2491,57 @@ function attach3DControls(){
   const tooltip = document.getElementById('tooltip3D');
   dom.addEventListener('contextmenu', e=>e.preventDefault());
 
-  let dragging = false, dragButton = 0, lastX = 0, lastY = 0;
+   let dragging = false, dragButton = 0, lastX = 0, lastY = 0;
+  let draggingNode = null;
 
   dom.addEventListener('mousedown', e=>{
+    const rect = dom.getBoundingClientRect();
+    three3D.mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
+    three3D.mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
+    three3D.raycaster.setFromCamera(three3D.mouse, three3D.camera);
+    const hits = e.button===0 ? three3D.raycaster.intersectObjects(three3D.spheres) : [];
+    if(hits.length){
+      draggingNode = hits[0].object;
+      lastY = e.clientY;
+      dom.style.cursor = 'ns-resize';
+      return;
+    }
     dragging = true; dragButton = e.button; lastX = e.clientX; lastY = e.clientY;
   });
-  window.addEventListener('mouseup', ()=>{ dragging = false; });
+  window.addEventListener('mouseup', ()=>{
+    dragging = false;
+    if(draggingNode){
+      // Se confirma el ajuste en el nodo real (nodes[]) — etiqueta y
+      // relaciones se recalculan bien al redibujar toda la escena.
+      const ud = draggingNode.userData;
+      const realNode = nodes.find(n=>n.id===ud.nodeId);
+      if(realNode) realNode.alturaAjuste = ud.ajuste;
+      draggingNode = null;
+      dom.style.cursor = 'default';
+      build3DScene();
+    }
+  });
   window.addEventListener('mousemove', e=>{
+    if(draggingNode){
+      const dy = e.clientY - lastY;
+      lastY = e.clientY;
+      const sensitivity = orbit3D.radius * 0.0022;
+      let newAjuste = (draggingNode.userData.ajuste||0) - dy*sensitivity;
+      const snapChk = document.getElementById('chk3DSnap');
+      const snapSel = document.getElementById('sel3DSnap');
+      if(snapChk && snapChk.checked){
+        const step = +(snapSel ? snapSel.value : 25);
+        newAjuste = Math.round(newAjuste/step)*step;
+      }
+      draggingNode.userData.ajuste = newAjuste;
+      draggingNode.position.y = draggingNode.userData.baseY + newAjuste;
+      const rect = dom.getBoundingClientRect();
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+      tooltip.style.top = (e.clientY - rect.top + 10) + 'px';
+      tooltip.textContent = `${draggingNode.userData.name} · Altura: ${Math.round(draggingNode.userData.baseY + newAjuste)} cm`;
+      return;
+    }
     if(dragging){
       const dx = e.clientX - lastX, dy = e.clientY - lastY;
       lastX = e.clientX; lastY = e.clientY;
@@ -2316,9 +2568,11 @@ function attach3DControls(){
       tooltip.style.display = 'block';
       tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
       tooltip.style.top = (e.clientY - rect.top + 10) + 'px';
-      tooltip.textContent = `${d.name} · ${d.area} m² · ${d.planta}`;
+      tooltip.textContent = `${d.name} · ${d.area} m² · Altura: ${Math.round(d.baseY+d.ajuste)} cm`;
+      dom.style.cursor = 'ns-resize';
     } else {
       tooltip.style.display = 'none';
+      dom.style.cursor = 'default';
     }
   });
 
@@ -2385,7 +2639,13 @@ document.getElementById('btnReset3D').onclick = ()=>{ reset3DView(); };
 /* =========================================================================
    9) PANEL LATERAL REDIMENSIONABLE
    ========================================================================= */
-(function(){
+function setAsideCollapsed(collapsed){
+  document.body.classList.toggle('aside-collapsed', collapsed);
+}
+document.getElementById('btnCollapseAside').onclick = ()=> setAsideCollapsed(true);
+document.getElementById('btnShowAside').onclick = ()=> setAsideCollapsed(false);
+
+   (function(){
   const resizer = document.getElementById('resizer');
   const root = document.documentElement;
   let dragging = false;

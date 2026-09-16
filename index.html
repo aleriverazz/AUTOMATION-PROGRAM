@@ -58,7 +58,7 @@
   button.ghost{background:transparent; color:var(--ink); border:1px solid var(--border);}
   button:hover{opacity:.82;}
   button:active{opacity:.65;}
-  main{display:grid; grid-template-columns:var(--aside-w,340px) 6px 1fr; min-height:calc(100vh - 64px);}
+   main{display:grid; grid-template-columns:var(--aside-w,340px) 6px 1fr; height:calc(100vh - 64px); overflow:hidden;}
   @media (max-width:860px){ main{grid-template-columns:1fr;} #resizer{display:none;} }
   #resizer{cursor:col-resize; background:var(--border); position:relative;}
   #resizer:hover, #resizer.dragging{background:var(--ink-soft);}
@@ -112,7 +112,7 @@
   .col-chip .col-icon:hover{color:var(--ink);}
   .legend-mini{font:11px var(--mono); color:var(--ink-soft); line-height:1.8; margin-top:6px;}
   .legend-mini span.sw{display:inline-block; width:18px; height:0; border-top-width:2px; border-top-style:solid; margin-right:6px; vertical-align:middle;}
-  .viewer{display:flex; flex-direction:column;}
+   .viewer{display:flex; flex-direction:column; overflow-y:auto; min-height:0;}
   .view-tabs{display:flex; border-bottom:1px solid var(--border); background:var(--panel);}
   .view-tabs button{
     font:600 11px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase;
@@ -123,8 +123,10 @@
     .view-tabs button.active{color:var(--ink); background:#fff; box-shadow:inset 0 -2px 0 var(--ink);}
   .edge-tab-btn{font:600 11px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase; padding:12px 20px; background:transparent; color:var(--ink-soft); border:none; border-right:1px solid var(--border); border-radius:0;}
   .edge-tab-btn.active{color:var(--ink); background:#fff; box-shadow:inset 0 -2px 0 var(--ink);}
-  .edge-tab-btn:hover{opacity:1; color:var(--ink);}
+    .edge-tab-btn:hover{opacity:1; color:var(--ink);}
   .view-tabs button:hover{opacity:1; color:var(--ink);}
+    #secAreas, #secRelaciones, #secLeyendas, #secEstudios{display:none;}
+  #secAreas.active, #secRelaciones.active, #secLeyendas.active, #secEstudios.active{display:block;}
   .view-pane{display:none;}
   .view-pane.active{display:block;}
   .toolbar{
@@ -196,6 +198,16 @@
   .areas-table td.num{text-align:right; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
   .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B; padding-top:2px;}
   .areas-table tr.total td{font:700 10px 'Helvetica Neue',Helvetica,Arial,sans-serif; border-top:2px solid #17233B; padding-top:4px;}
+  .areas-table-lg{width:100%; max-width:700px; border-collapse:collapse; font:14px var(--sans); margin-bottom:20px; table-layout:fixed;}
+  .areas-table-lg th{font:700 11px var(--mono); text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:8px 10px; border-bottom:2px solid var(--ink); color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .areas-table-lg th:first-child, .areas-table-lg td:first-child{width:36px;}
+  .areas-table-lg th:nth-child(3), .areas-table-lg td:nth-child(3){width:80px; text-align:right;}
+  .areas-table-lg th:nth-child(n+4), .areas-table-lg td:nth-child(n+4){width:110px;}
+  .areas-table-lg td{padding:6px 10px; border-bottom:1px solid var(--border); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .areas-table-lg td.idx{font-style:italic; color:var(--ink-faint);}
+  .areas-table-lg td.num{text-align:right;}
+   .areas-table-lg tr.subtotal td{font-weight:600; border-top:1px solid var(--ink); padding-top:8px; white-space:normal; overflow:visible;}
+  .areas-table-lg tr.total td{font:700 16px var(--sans); border-top:2px solid var(--ink); padding-top:10px; white-space:normal; overflow:visible;}
   .matrix-legend-list{font-size:8.5px;}
   .matrix-legend-list .lg-title{margin-bottom:4px;}
   .matrix-legend-list .lg-row{margin-bottom:2px; gap:5px;}
@@ -275,9 +287,14 @@
 </header>
 
 <main>
-  <button id="btnShowAside" title="Mostrar panel">▶</button>
-  <aside>
-    <button id="btnCollapseAside" title="Ocultar panel">◀</button>
+    <aside>
+    <div id="asideTabs" style="display:flex; border-bottom:1px solid var(--border); margin:0 -16px 14px; background:var(--panel);">
+      <button class="edge-tab-btn active" data-sec="secAreas" type="button" style="flex:1;">Áreas</button>
+      <button class="edge-tab-btn" data-sec="secRelaciones" type="button" style="flex:1;">Relaciones</button>
+      <button class="edge-tab-btn" data-sec="secLeyendas" type="button" style="flex:1;">Leyendas</button>
+          <button class="edge-tab-btn" data-sec="secEstudios" type="button" style="flex:1;">Estudios</button>
+    </div>
+        <div id="secAreas" class="active">
         <div class="section-title">Tabla de Áreas<span></span></div>
     <div id="plantaChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
     <div style="display:flex; gap:6px; margin-bottom:4px;">
@@ -291,15 +308,19 @@
       <thead><tr id="tblNodosHead"></tr></thead>
       <tbody></tbody>
     </table>
-    <button class="add-row" data-add="node">+ agregar espacio</button>
+        <button class="add-row" data-add="node">+ agregar espacio</button>
+    </div>
 
+    <div id="secRelaciones">
     <div class="section-title">Relaciones (matrices)</div>
     <table id="tblEdges">
       <thead><tr><th>A</th><th>B</th><th>Motivo</th><th>Física</th><th>Importancia</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
-    <button class="add-row" data-add="edge">+ agregar relación</button>
+        <button class="add-row" data-add="edge">+ agregar relación</button>
+    </div>
 
+    <div id="secLeyendas">
     <div class="section-title">Leyenda de motivos</div>
     <textarea id="fMotivos" rows="4" placeholder="1. Acceso directo requerido&#10;2. Comparte instalación hidrosanitaria&#10;3. Ruido/vibración indeseable..."
       style="width:100%; font:11px var(--mono); border:1px solid var(--border); padding:6px; resize:vertical; background:#fff;"></textarea>
@@ -308,8 +329,10 @@
     <div class="legend-mini" id="legendMini"></div>
 
     <div class="section-title">Estilo de líneas (por importancia)</div>
-    <div id="lineStyleControls"></div>
+        <div id="lineStyleControls"></div>
+    </div>
 
+    <div id="secEstudios">
     <div class="section-title">Estudios (GitHub)<span></span></div>
     <div style="display:flex; flex-direction:column; gap:5px;">
       <input id="ghOwner" placeholder="usuario u organización">
@@ -321,7 +344,8 @@
       </div>
       <select id="ghList" size="4" style="font:11px var(--mono); border:1px solid var(--border); background:#fff;"></select>
       <button class="ghost" id="btnGhLoad">Cargar seleccionado</button>
-      <div id="ghStatus" style="font:10px var(--mono); color:var(--ink-faint); min-height:14px;"></div>
+          <div id="ghStatus" style="font:10px var(--mono); color:var(--ink-faint); min-height:14px;"></div>
+    </div>
     </div>
   </aside>
 
@@ -329,9 +353,10 @@
 
   <div class="viewer">
         <div class="view-tabs">
-      <button class="tab-btn active" data-view="burbujas" type="button">Burbujas</button>
+           <button class="tab-btn active" data-view="burbujas" type="button">Burbujas</button>
       <button class="tab-btn" data-view="matrices" type="button">Matrices</button>
       <button class="tab-btn" data-view="3d" type="button">3D</button>
+      <button class="tab-btn" data-view="areas" type="button">Áreas</button>
     </div>
 
         <div class="view-pane active" id="paneBurbujas">
@@ -380,6 +405,14 @@
         <button class="ghost" id="btnExportMatricesPDF">Exportar PDF (3 láminas)</button>
       </div>
             <div class="matrix-grid" id="matrixGrid"></div>
+    </div>
+
+        <div class="view-pane" id="paneAreas">
+      <div class="matrix-toolbar">
+        <div class="tb-spacer"></div>
+        <button class="ghost" id="btnExportAreasPDFTab">Exportar PDF</button>
+      </div>
+           <div style="padding:24px;" id="areasPreviewWrap"></div>
     </div>
 
     <div class="view-pane" id="pane3D">
@@ -628,7 +661,7 @@ function renderPlantaChips(){
       delete plantaAlturas[removed];
       delete plantaAlturaLabels[removed];
       nodes.forEach(n=>{ if(n.planta===removed) n.planta = plantas[0]; });
-      renderPlantaChips(); renderTables(); autoGenerate();
+      renderPlantaChips(); renderTables(); refreshDiagramInPlace();
     };
   });
   el.querySelectorAll('[data-color-planta]').forEach(x=>{
@@ -1477,12 +1510,45 @@ function refreshMatricesIfVisible(){
   if(document.getElementById('paneMatrices').classList.contains('active')) renderMatrices();
 }
 
+function refreshAreasIfVisible(){
+  const pane = document.getElementById('paneAreas');
+  if(pane && pane.classList.contains('active')){
+    document.getElementById('areasPreviewWrap').innerHTML = buildAreasPreviewHtml();
+  }
+}
+
+function refreshDiagramInPlace(){
+  if(!nodes.length){
+    currentConfigs = [];
+    selectedIndex = 0;
+    renderGrid(); renderDetail(); refreshMatricesIfVisible(); refresh3DIfVisible(); refreshAreasIfVisible();
+    return;
+  }
+  if(!currentConfigs.length){ autoGenerate(); return; }
+  currentConfigs.forEach(c=>{
+    const posByNum = new Map(c.result.nodes.map(n=>[n.num, n]));
+    c.result.nodes = nodes.map(n=>{
+      const old = posByNum.get(n.num);
+      return old ? {...n, x: old.x, y: old.y, alturaAjuste: old.alturaAjuste} : {...n, x: TABLO_W/2, y: TABLO_H/2};
+    });
+    c.result.edges = edges.map(e=>({...e}));
+    c.crossings = countCrossings(c.result);
+    c.score = scoreLayout(c.result);
+  });
+  renderGrid();
+  renderDetail();
+  refreshMatricesIfVisible();
+  refresh3DIfVisible();
+  refreshAreasIfVisible();
+}
+
 /* =========================================================================
    5) TABLAS EDITABLES (resto del código idéntico al original)
    ========================================================================= */
 function renderTables(){
   renderNodeTableHead();
   renderColManager();
+  refreshAreasIfVisible();
   const tb = document.querySelector('#tblNodos tbody');
   tb.innerHTML='';
   nodes.forEach((n,i)=>{
@@ -1520,15 +1586,16 @@ function renderTables(){
   tb.querySelectorAll('input[data-f],select[data-f]').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, f=e.target.dataset.f;
     nodes[i][f] = f==='area' ? parseFloat(e.target.value)||0 : e.target.value;
-    autoGenerate();
+    refreshDiagramInPlace();
   });
   tb.querySelectorAll('input[data-col],select[data-col]').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, key=e.target.dataset.col;
     if(!nodes[i].custom) nodes[i].custom={};
     nodes[i].custom[key] = e.target.value;
+    refreshAreasIfVisible();
   });
   tb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
-    nodes.splice(+e.target.dataset.del,1); renderTables(); autoGenerate();
+    nodes.splice(+e.target.dataset.del,1); renderTables(); refreshDiagramInPlace();
   });
 
   const teb = document.querySelector('#tblEdges tbody');
@@ -1548,10 +1615,10 @@ function renderTables(){
   teb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, f=e.target.dataset.f;
     edges[i][f] = e.target.value;
-    autoGenerate();
+    refreshDiagramInPlace();
   });
   teb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
-    edges.splice(+e.target.dataset.del,1); renderTables(); autoGenerate();
+    edges.splice(+e.target.dataset.del,1); renderTables(); refreshDiagramInPlace();
   });
 }
 
@@ -1817,6 +1884,27 @@ function exportBubbleDXF(){
   download(`${slug}_burbujas_v${selectedIndex+1}.dxf`, dxf, 'application/dxf');
 }
 
+function buildAreasPreviewHtml(){
+  const cols = [];
+  if(!colConfig.tipo.hidden) cols.push({label:colConfig.tipo.label, get:n=>n.tipo||'Íntimo'});
+  customColumns.forEach(c=>{ if(!c.hidden) cols.push({label:c.label, get:n=>(n.custom&&n.custom[c.key])||''}); });
+  const groups = plantas.map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
+  const totalGeneral = nodes.reduce((a,n)=>a+n.area,0);
+  const span = 2 + cols.length;
+  let html = '';
+  groups.forEach(g=>{
+    const subtotal = g.items.reduce((a,n)=>a+n.area,0);
+    html += `<table class="areas-table-lg">
+      <thead><tr><th>#</th><th>Espacio</th><th>m²</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${g.items.map(n=>`<tr><td class="idx">${String(n.num).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td>${cols.map(c=>`<td>${c.get(n)}</td>`).join('')}</tr>`).join('')}
+        <tr class="subtotal"><td colspan="${span}">Subtotal</td><td class="num">${subtotal.toFixed(1)} m²</td></tr>
+      </tbody>
+    </table>`;
+  });
+  html += `<table class="areas-table-lg total-table"><tbody><tr class="total"><td colspan="${span}">TOTAL</td><td class="num">${totalGeneral.toFixed(1)} m²</td></tr></tbody></table>`;
+  return html;
+}
 function buildAreasTableHtml(){
   const groups = plantas.map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
   const totalGeneral = nodes.reduce((a,n)=>a+n.area,0);
@@ -2044,6 +2132,7 @@ function autoGenerate(){
     renderDetail();
     refreshMatricesIfVisible();
     refresh3DIfVisible();
+    refreshAreasIfVisible();
     return;
   }
   currentConfigs = generateConfigs(count, charge);
@@ -2052,6 +2141,7 @@ function autoGenerate(){
   renderDetail();
   refreshMatricesIfVisible();
   refresh3DIfVisible();
+  refreshAreasIfVisible();
 }
 
 document.getElementById('btnAddPlanta').onclick = ()=>{
@@ -2075,7 +2165,7 @@ document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
         if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], tipo:TIPOS[0]||'', num:nextNodeId++, custom:{}});
   else edges.push({source:nodes[0]?.id||'', target:nodes[1]?.id||nodes[0]?.id||'', motivo:'', fisica:'neutro', importancia:'neutral'});
   renderTables();
-  autoGenerate();
+  refreshDiagramInPlace();
 });
 ['rNumConfigs','rCharge'].forEach(id=>{
   const el = document.getElementById(id);
@@ -2106,10 +2196,10 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.classList.add('active');
     document.querySelectorAll('.view-pane').forEach(p=>p.classList.remove('active'));
     const view = btn.dataset.view;
-    const paneId = view==='burbujas' ? 'paneBurbujas' : (view==='matrices' ? 'paneMatrices' : 'pane3D');
-    document.getElementById(paneId).classList.add('active');
-    setAsideCollapsed(view !== 'burbujas'); // abierto en Burbujas, cerrado en Matrices/3D por default
-    if(view==='matrices') renderMatrices();
+        const paneId = view==='burbujas' ? 'paneBurbujas' : (view==='matrices' ? 'paneMatrices' : (view==='areas' ? 'paneAreas' : 'pane3D'));
+              document.getElementById(paneId).classList.add('active');
+       if(view==='matrices'){ renderMatrices(); activateAsideTab('secRelaciones'); }
+       if(view==='areas'){ document.getElementById('areasPreviewWrap').innerHTML = buildAreasPreviewHtml(); }
     if(view==='3d'){
       init3DIfNeeded();
       build3DScene();
@@ -2642,8 +2732,6 @@ document.getElementById('btnReset3D').onclick = ()=>{ reset3DView(); };
 function setAsideCollapsed(collapsed){
   document.body.classList.toggle('aside-collapsed', collapsed);
 }
-document.getElementById('btnCollapseAside').onclick = ()=> setAsideCollapsed(true);
-document.getElementById('btnShowAside').onclick = ()=> setAsideCollapsed(false);
 
    (function(){
   const resizer = document.getElementById('resizer');
@@ -2750,6 +2838,19 @@ document.getElementById('btnShowAside').onclick = ()=> setAsideCollapsed(false);
   document.getElementById('btnZoomOut').onclick = ()=> zoomBy(1/1.25, 720, 466);
   document.getElementById('btnZoomReset').onclick = ()=>{ scale=1; panX=0; panY=0; applyZoomTransform(); };
 })();
+
+function activateAsideTab(secId){
+  document.querySelectorAll('#asideTabs .edge-tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.sec===secId));
+  ['secAreas','secRelaciones','secLeyendas','secEstudios'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.classList.toggle('active', id===secId);
+  });
+  const aside = document.querySelector('aside');
+  if(aside) aside.scrollTop = 0;
+}
+document.querySelectorAll('#asideTabs .edge-tab-btn').forEach(btn=>{
+  btn.onclick = ()=> activateAsideTab(btn.dataset.sec);
+});
 
 // =========================================================================
 // INICIALIZACIÓN

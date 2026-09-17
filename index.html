@@ -26,10 +26,7 @@
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background:
-      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/32px 32px,
-      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px) 0 0/32px 32px,
-      var(--paper);
+    background: var(--paper);
     color:var(--ink);
     font-family:var(--sans);
     min-height:100vh;
@@ -369,7 +366,9 @@
             <option value="numero">Número</option>
           </select>
         </div>
-        <div class="field"><label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="chkReticula" checked> Retícula guía</label></div>
+               <div class="field"><label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" id="chkReticula" checked> Retícula guía</label>
+          <input type="color" id="colReticula" value="#D7DCE3" title="Color de la retícula" style="width:22px; height:22px; padding:0; border:1px solid var(--border); cursor:pointer;">
+        </div>
         <div class="tb-spacer"></div>
         <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
         <button class="ghost" id="btnExportSVG">Exportar SVG</button>
@@ -418,7 +417,8 @@
         <div class="view-pane" id="paneAreas">
       <div class="matrix-toolbar">
         <div class="tb-spacer"></div>
-        <button class="ghost" id="btnExportAreasPDFTab">Exportar PDF</button>
+           <button class="ghost" id="btnExportAreasPDFTab">Exportar PDF</button>
+        <button class="ghost" id="btnExportAreasXLSX">Exportar Excel</button>
       </div>
            <div style="padding:24px;" id="areasPreviewWrap"></div>
     </div>
@@ -1026,6 +1026,7 @@ let currentConfigs = [];
 let selectedIndex = 0;
 let labelMode = 'nombre';
 let reticulaVisible = true;
+let reticulaColor = '#D7DCE3';
 let edgeFilterMode = 'todas'; // 'todas' | 'mandatoria' | 'deseable'
 function edgeFilterPass(e){
   if(e.importancia === 'negativa' || e.importancia === 'neutral' || e.importancia === 'por-decidir') return false;
@@ -1181,7 +1182,7 @@ function renderGrid(){
 }
 
 function buildReticulaGuia(cx, cy, maxR, ringStep, spokes){
-  let s = '<g id="reticulaGuiaGroup" stroke="#F0D878" stroke-width="1" stroke-dasharray="1 3" fill="none">';
+  let s = `<g id="reticulaGuiaGroup" stroke="${reticulaColor}" stroke-width="1" stroke-dasharray="1 3" fill="none">`;
   for(let r=ringStep; r<=maxR; r+=ringStep){
     s += `<circle cx="${cx}" cy="${cy}" r="${r}"/>`;
   }
@@ -1995,6 +1996,32 @@ function buildAreasTableHtml(){
   html += `<table class="areas-table total-table"><tbody><tr class="total"><td colspan="3">TOTAL</td><td class="num">${totalGeneral.toFixed(1)} m²</td></tr></tbody></table>`;
   return html;
 }
+
+function exportAreasXLSX(){
+  if(!nodes.length) return;
+  const cols = [];
+  if(!colConfig.tipo.hidden) cols.push({label:colConfig.tipo.label, get:n=>n.tipo||'Íntimo'});
+  customColumns.forEach(c=>{ if(!c.hidden) cols.push({label:c.label, get:n=>(n.custom&&n.custom[c.key])||''}); });
+  const rows = [];
+  plantas.forEach(p=>{
+    const items = nodes.filter(n=>n.planta===p);
+    if(!items.length) return;
+    rows.push(['#','Espacio','m²', ...cols.map(c=>c.label)]);
+    items.forEach(n=>{
+      rows.push([n.num, n.id, n.area, ...cols.map(c=>c.get(n))]);
+    });
+    const subtotal = items.reduce((a,n)=>a+n.area,0);
+    rows.push(['','Subtotal', subtotal]);
+    rows.push([]);
+  });
+  const totalGeneral = nodes.reduce((a,n)=>a+n.area,0);
+  rows.push(['','TOTAL', totalGeneral]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Tabla de Áreas');
+  const slug = slugify(document.getElementById('fProyecto').value || 'proyecto');
+  XLSX.writeFile(wb, `${slug}_tabla-de-areas.xlsx`);
+}
 function exportAreasPDF(){
   if(!nodes.length) return;
   const proyecto = document.getElementById('fProyecto').value || 'PROYECTO';
@@ -2234,6 +2261,7 @@ document.getElementById('btnExportDXF').onclick = exportBubbleDXF;
 document.getElementById('btnExportBubblePDF').onclick = exportBubblePDF;
 document.getElementById('btnExportAreasPDF').onclick = exportAreasPDF;
 document.getElementById('btnExportAreasPDFTab').onclick = exportAreasPDF;
+document.getElementById('btnExportAreasXLSX').onclick = exportAreasXLSX;
 document.getElementById('btnExportMatricesPDF').onclick = exportMatricesPDF;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
         if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], tipo:TIPOS[0]||'', num:nextNodeId++, custom:{}});
@@ -2261,6 +2289,7 @@ document.querySelectorAll('#edgeFilterTabs .edge-tab-btn').forEach(btn=>{
   };
 });
 document.getElementById('chkReticula').onchange = (e)=>{ reticulaVisible = e.target.checked; renderDetail(); };
+document.getElementById('colReticula').onchange = (e)=>{ reticulaColor = e.target.value; renderDetail(); };
 document.getElementById('fMotivos').addEventListener('input', refreshMatricesIfVisible);
 document.getElementById('fProyecto').addEventListener('input', refreshMatricesIfVisible);
 

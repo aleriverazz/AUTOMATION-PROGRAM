@@ -166,7 +166,8 @@
   .mini-btn{font:600 9px/1 var(--mono); text-transform:uppercase; letter-spacing:.05em; padding:5px 9px; background:transparent; border:1px solid var(--border); color:var(--ink-soft); flex:none;}
   .mini-btn:hover{border-color:var(--ink-soft); color:var(--ink);}
   .matrix-body{display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start;}
-  .matrix-svg-wrap{overflow-x:auto; max-width:100%;}
+    .matrix-svg-wrap{overflow-x:auto; max-width:100%;}
+  .matrix-svg-wrap[data-matrix-type] svg{cursor:pointer;}
   .matrix-legend-list{font:11px var(--mono); color:var(--ink-soft); min-width:190px;}
   .matrix-legend-list .lg-title{font:700 10px var(--mono); text-transform:uppercase; letter-spacing:.06em; color:var(--ink); margin-bottom:8px;}
   .matrix-legend-list .lg-row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
@@ -179,7 +180,7 @@
   .matrix-toolbar{display:flex; align-items:center; padding:12px 18px; border-bottom:1px solid var(--border); background:var(--panel);}
   footer{padding:10px 18px; font:11px var(--mono); color:var(--ink-faint); border-top:1px solid var(--border);}
   #printArea{display:none;}
-  .print-page{width:100%; height:190mm; max-height:190mm; padding:4mm 0; overflow:hidden; page-break-after:always; box-sizing:border-box; display:flex; flex-direction:column;}
+   .print-page{width:100%; height:250mm; max-height:250mm; padding:4mm 0; overflow:hidden; page-break-after:always; box-sizing:border-box; display:flex; flex-direction:column;}
   .print-page:last-child{page-break-after:auto;}
     .print-head{margin-bottom:8px; padding-bottom:5px; flex:none;}
   .print-head .t1{font:700 16px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#17233B; display:block;}
@@ -211,7 +212,7 @@
   .matrix-legend-list{font-size:8.5px;}
   .matrix-legend-list .lg-title{margin-bottom:4px;}
   .matrix-legend-list .lg-row{margin-bottom:2px; gap:5px;}
-    .print-foot{display:flex; gap:16px; align-items:center; margin-top:8px; padding-top:6px; width:100%; flex:none;}
+     .print-foot{display:flex; gap:16px; align-items:center; margin-top:20px; padding-top:6px; width:100%; flex:none;}
   .legend-2col{display:grid; grid-template-columns:1fr 1fr; column-gap:8px;}
   .print-foot-text{font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; line-height:1.45;}
    @media print{
@@ -231,12 +232,6 @@
       align-items:center;
       justify-content:center;
       overflow:visible;
-    }
-    .print-body .matrix-svg-wrap svg{
-      max-width:100% !important;
-      max-height:100% !important;
-      width:auto !important;
-      height:auto !important;
     }
     .print-body-split{ height:100%; }
     .print-diagram-col{ height:100%; }
@@ -379,6 +374,19 @@
         <button class="ghost" id="btnExportJSON">Exportar JSON (→ GH)</button>
         <button class="ghost" id="btnExportSVG">Exportar SVG</button>
         <button class="ghost" id="btnExportDXF">Exportar DXF (CAD)</button>
+               <div class="field">Escala PDF
+          <select id="selBubbleScale">
+            <option value="auto">Automática</option>
+            <option value="50">1:50</option>
+            <option value="75">1:75</option>
+            <option value="100">1:100</option>
+            <option value="125">1:125</option>
+            <option value="150">1:150</option>
+            <option value="200">1:200</option>
+            <option value="250">1:250</option>
+            <option value="300">1:300</option>
+          </select>
+        </div>
         <button class="ghost" id="btnExportBubblePDF">Exportar PDF</button>
       </div>
 
@@ -1247,6 +1255,65 @@ function findEdge(a,b){
   });
 }
 
+function findOrCreateEdge(aId,bId){
+  let e = findEdge(aId,bId);
+  if(!e){
+    e = {source:aId, target:bId, motivo:'', fisica:'por-decidir', importancia:'por-decidir'};
+    edges.push(e);
+  }
+  return e;
+}
+function commitEdgeChange(){
+  renderTables();
+  refreshDiagramInPlace();
+  renderMatrices();
+}
+function showQuickSelect(optionsObj, current, x, y, onPick){
+  document.querySelectorAll('.quick-select-float').forEach(el=>el.remove());
+  const sel = document.createElement('select');
+  sel.className = 'quick-select-float';
+  sel.style.cssText = `position:fixed; left:${x}px; top:${y}px; z-index:9999; font:12px sans-serif; border:1px solid #C7CEDA; background:#fff;`;
+  Object.entries(optionsObj).forEach(([k,v])=>{
+    const opt = document.createElement('option');
+    opt.value = k; opt.textContent = v.label;
+    if(k===current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  document.body.appendChild(sel);
+  sel.focus();
+  sel.onchange = ()=>{ onPick(sel.value); sel.remove(); };
+  sel.onblur = ()=>{ setTimeout(()=>sel.remove(), 150); };
+}
+function onMatrixClick(e, type){
+  const svg = e.currentTarget;
+  const pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+  const rowH = 32;
+  const L = matrixLayout(nodes, rowH);
+  const rCell = (rowH/2)*0.98;
+  let hit = null;
+  for(const p of L.pairs){
+    if(Math.hypot(loc.x-p.x, loc.y-p.y) <= rCell){ hit = p; break; }
+  }
+  if(!hit) return;
+  const a = L.rows[hit.i], b = L.rows[hit.j];
+  const edge = findOrCreateEdge(a.id, b.id);
+  if(type==='motivo'){
+    const val = prompt('Motivo de la relación:', edge.motivo||'');
+    if(val==null) return;
+    edge.motivo = val.trim();
+    commitEdgeChange();
+    return;
+  }
+  const options = type==='importancia' ? IMPORTANCIA : FISICA;
+  const current = type==='importancia' ? edge.importancia : edge.fisica;
+  showQuickSelect(options, current, e.clientX, e.clientY, (val)=>{
+    if(type==='importancia') edge.importancia = val; else edge.fisica = val;
+    commitEdgeChange();
+  });
+}
+
 function diamondPath(cx,cy,r){
   return `M ${cx} ${cy-r} L ${cx+r} ${cy} L ${cx} ${cy+r} L ${cx-r} ${cy} Z`;
 }
@@ -1466,7 +1533,7 @@ function renderMatrices(){
         <button class="mini-btn" data-export-svg="importancia">⤓ SVG</button>
       </div>
       <div class="matrix-body">
-        <div class="matrix-svg-wrap">${svgMatrixImportancia()}</div>
+        <div class="matrix-svg-wrap" data-matrix-type="importancia">${svgMatrixImportancia()}</div>
         <div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchImportancia()}</div>
       </div>
     </div>
@@ -1476,7 +1543,7 @@ function renderMatrices(){
         <button class="mini-btn" data-export-svg="fisica">⤓ SVG</button>
       </div>
       <div class="matrix-body">
-        <div class="matrix-svg-wrap">${svgMatrixFisica()}</div>
+           <div class="matrix-svg-wrap" data-matrix-type="fisica">${svgMatrixFisica()}</div>
         <div class="matrix-legend-list"><div class="lg-title">Relación Física</div>${legendSwatchFisica()}</div>
       </div>
     </div>
@@ -1486,12 +1553,16 @@ function renderMatrices(){
         <button class="mini-btn" data-export-svg="motivos">⤓ SVG</button>
       </div>
       <div class="matrix-body">
-        <div class="matrix-svg-wrap">${svgMatrixMotivos(motivoMap)}</div>
+              <div class="matrix-svg-wrap" data-matrix-type="motivo">${svgMatrixMotivos(motivoMap)}</div>
         <div class="matrix-legend-list" style="min-width:280px;"><div class="lg-title">Deseos y Motivos</div>${motivoListHtml}</div>
       </div>
     </div>
   `;
 
+  grid.querySelectorAll('[data-matrix-type]').forEach(wrap=>{
+    const svg = wrap.querySelector('svg');
+    if(svg) svg.onclick = (e)=> onMatrixClick(e, wrap.dataset.matrixType);
+  });
   grid.querySelectorAll('[data-export-svg]').forEach(btn=>{
     btn.onclick = ()=>{
       const type = btn.dataset.exportSvg;
@@ -1615,6 +1686,10 @@ function renderTables(){
   teb.querySelectorAll('input,select').forEach(el=>el.onchange = e=>{
     const i=+e.target.dataset.i, f=e.target.dataset.f;
     edges[i][f] = e.target.value;
+    if(f==='importancia'){
+      edgeFilterMode = 'todas';
+      document.querySelectorAll('#edgeFilterTabs .edge-tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.filter==='todas'));
+    }
     refreshDiagramInPlace();
   });
   teb.querySelectorAll('[data-del]').forEach(el=>el.onclick = e=>{
@@ -1740,10 +1815,10 @@ function svgTrueScaleBubbles(scaleE, layout, filterMode){
 
   layout.pts.forEach((p)=>{
     const r = p.r*mmPerUnit, cx=tx(p), cy=ty(p);
-    s += `<circle cx="${cx}" cy="${cy}" r="${r + Math.max(0.5, r*0.28)}" fill="none" stroke="#999" stroke-width="0.15" stroke-dasharray="0.05 0.6" stroke-linecap="round"/>`;
-          s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#666666" stroke-width="0.15"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${r + Math.max(0.5, r*0.28)}" fill="none" stroke="#999" stroke-width="0.3" stroke-dasharray="0.1 1.2" stroke-linecap="round"/>`;
+          s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#666666" stroke-width="0.3"/>`;
     const othersMM = (adjacencyMM.get(p.id)||[]).map(o=>({x:tx(o), y:ty(o)}));
-    s += buildOrientationArcs({x:cx, y:cy, area:p.area}, othersMM, layout.kScale*mmPerUnit, 0.12);
+    s += buildOrientationArcs({x:cx, y:cy, area:p.area}, othersMM, layout.kScale*mmPerUnit, 0.3);
 
     const maxChars = Math.max(4, Math.round(r*0.30));
     const lines = wrapWords(p.id.toUpperCase(), maxChars);
@@ -1769,11 +1844,13 @@ function svgTrueScaleBubbles(scaleE, layout, filterMode){
     const ux=dx/dist, uy=dy/dist;
     const pAx=ax+ux*Ra, pAy=ay+uy*Ra;
     const pBx=bx-ux*Rb, pBy=by-uy*Rb;
-    const col = MATRIZ_COLOR[e.importancia] || '#C7CEDA';
-    s += `<line x1="${pAx}" y1="${pAy}" x2="${pBx}" y2="${pBy}" stroke="${col}" stroke-width="${style.width*0.35}" stroke-linecap="round" ${style.dash?`stroke-dasharray="${style.dash}"`:''} opacity="0.75"/>`;
+     const col = MATRIZ_COLOR[e.importancia] || '#C7CEDA';
+       const lineScale = Math.max(0.3, Math.min(0.9, mmPerUnit*0.16));
+    const dashLine = style.dash ? style.dash.split(' ').map(n=>(parseFloat(n)*lineScale).toFixed(2)).join(' ') : null;
+    s += `<line x1="${pAx}" y1="${pAy}" x2="${pBx}" y2="${pBy}" stroke="${col}" stroke-width="${(style.width*lineScale).toFixed(2)}" stroke-linecap="round" ${dashLine?`stroke-dasharray="${dashLine}"`:''} opacity="0.75"/>`;
         const mx=(pAx+pBx)/2, my=(pAy+pBy)/2;
-    const gR = 1.4;
-    s += glyphMarkup(e.fisica, mx, my, gR, 0.12);
+      const gR = 4*lineScale;
+    s += glyphMarkup(e.fisica, mx, my, gR, lineScale);
   });
 
   s += `</svg>`;
@@ -1804,26 +1881,23 @@ function exportBubblePDF(){
   const elaboro = document.getElementById('fElaboro').value || '';
 
   const layout = buildTrueScaleLayout(c.result);
-  const scaleE = chooseScale(layout.bboxW, layout.bboxH, layout.kScale, 190, 148);
+  const manualScale = document.getElementById('selBubbleScale').value;
+  const scaleE = manualScale==='auto' ? chooseScale(layout.bboxW, layout.bboxH, layout.kScale, 190, 148) : +manualScale;
   const totalArea = nodes.reduce((a,n)=>a+n.area,0);
 
   const infoBits = [
     fase ? `Fase: ${fase}` : '', elaboro ? `Elaboró: ${elaboro}` : ''
   ].filter(Boolean).join(' · ');
 
-  const HOJAS = [
-    {mode:'todas',      sub:'Diagrama de burbujas · Todas'},
-    {mode:'mandatoria', sub:'Diagrama de burbujas · Mandatorias'},
-    {mode:'deseable',   sub:'Diagrama de burbujas · Deseables'},
-  ];
+  const FILTER_LABELS = {todas:'Todas', mandatoria:'Mandatorias', deseable:'Deseables'};
+  const mode = edgeFilterMode;
+  const svgMarkup = svgTrueScaleBubbles(scaleE, layout, mode);
 
-  const pagesHtml = HOJAS.map(h=>{
-    const svgMarkup = svgTrueScaleBubbles(scaleE, layout, h.mode);
-    return `
+  const pagesHtml = `
     <div class="print-page">
       <div class="print-head">
         <span class="t1">${proyecto}</span>
-        <span class="t2">${h.sub}</span>
+        <span class="t2">Diagrama de burbujas · ${FILTER_LABELS[mode]||'Todas'}</span>
         <span class="t3">${infoBits}</span>
       </div>
       <div class="print-body-split">
@@ -1847,7 +1921,6 @@ function exportBubblePDF(){
         </div>
       </div>
     </div>`;
-  }).join('');
 
   document.getElementById('printArea').innerHTML = pagesHtml;
   window.print();
@@ -2160,6 +2233,7 @@ document.getElementById('btnExportSVG').onclick = exportSVG;
 document.getElementById('btnExportDXF').onclick = exportBubbleDXF;
 document.getElementById('btnExportBubblePDF').onclick = exportBubblePDF;
 document.getElementById('btnExportAreasPDF').onclick = exportAreasPDF;
+document.getElementById('btnExportAreasPDFTab').onclick = exportAreasPDF;
 document.getElementById('btnExportMatricesPDF').onclick = exportMatricesPDF;
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick = ()=>{
         if(b.dataset.add==='node') nodes.push({id:'Nuevo espacio', area:10, planta:plantas[0], tipo:TIPOS[0]||'', num:nextNodeId++, custom:{}});

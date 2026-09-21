@@ -196,12 +196,12 @@
   .areas-table td.num{text-align:right; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
   .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B; padding-top:2px;}
   .areas-table tr.total td{font:700 10px 'Helvetica Neue',Helvetica,Arial,sans-serif; border-top:2px solid #17233B; padding-top:4px;}
-  .areas-table-lg{width:100%; max-width:700px; border-collapse:collapse; font:14px var(--sans); margin-bottom:20px; table-layout:fixed;}
-  .areas-table-lg th{font:700 11px var(--mono); text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:8px 10px; border-bottom:2px solid var(--ink); color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .areas-table-lg th:first-child, .areas-table-lg td:first-child{width:36px;}
-  .areas-table-lg th:nth-child(3), .areas-table-lg td:nth-child(3){width:80px; text-align:right;}
-  .areas-table-lg th:nth-child(n+4), .areas-table-lg td:nth-child(n+4){width:110px;}
-  .areas-table-lg td{padding:6px 10px; border-bottom:1px solid var(--border); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .areas-table-lg{width:auto; border-collapse:collapse; font:14px var(--sans); margin-bottom:20px; table-layout:fixed;}
+  .areas-table-lg th{position:relative; font:700 11px var(--mono); text-transform:uppercase; letter-spacing:.04em; text-align:left; padding:8px 14px 8px 10px; border-bottom:2px solid var(--ink); color:var(--ink-soft); overflow:hidden; white-space:normal; word-break:break-word;}
+  .areas-table-lg td:nth-child(3){text-align:right;}
+  .areas-table-lg td{padding:6px 10px; border-bottom:1px solid var(--border); overflow:hidden; white-space:normal; word-break:break-word; vertical-align:top;}
+  .areas-table-lg .col-resizer{position:absolute; right:0; top:0; width:6px; height:100%; cursor:col-resize; user-select:none;}
+  .areas-table-lg .col-resizer:hover{background:var(--border);}
   .areas-table-lg td.idx{font-style:italic; color:var(--ink-faint);}
   .areas-table-lg td.num{text-align:right;}
    .areas-table-lg tr.subtotal td{font-weight:600; border-top:1px solid var(--ink); padding-top:8px; white-space:normal; overflow:visible;}
@@ -1585,7 +1585,9 @@ function refreshMatricesIfVisible(){
 function refreshAreasIfVisible(){
   const pane = document.getElementById('paneAreas');
   if(pane && pane.classList.contains('active')){
-    document.getElementById('areasPreviewWrap').innerHTML = buildAreasPreviewHtml();
+    const wrap = document.getElementById('areasPreviewWrap');
+    wrap.innerHTML = buildAreasPreviewHtml();
+    attachColumnResizers(wrap);
   }
 }
 
@@ -1965,11 +1967,14 @@ function buildAreasPreviewHtml(){
   const groups = plantas.map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
   const totalGeneral = nodes.reduce((a,n)=>a+n.area,0);
   const span = 2 + cols.length;
+  const colgroup = `<colgroup><col style="width:40px"><col style="width:200px"><col style="width:80px">${cols.map(()=>'<col style="width:140px">').join('')}</colgroup>`;
+  const headCells = ['#','Espacio','m²',...cols.map(c=>c.label)].map(label=>`<th>${label}<span class="col-resizer"></span></th>`).join('');
   let html = '';
   groups.forEach(g=>{
     const subtotal = g.items.reduce((a,n)=>a+n.area,0);
     html += `<table class="areas-table-lg">
-      <thead><tr><th>#</th><th>Espacio</th><th>m²</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>
+      ${colgroup}
+      <thead><tr>${headCells}</tr></thead>
       <tbody>
         ${g.items.map(n=>`<tr><td class="idx">${String(n.num).padStart(2,'0')}</td><td>${n.id}</td><td class="num">${n.area} m²</td>${cols.map(c=>`<td>${c.get(n)}</td>`).join('')}</tr>`).join('')}
         <tr class="subtotal"><td colspan="${span}">Subtotal</td><td class="num">${subtotal.toFixed(1)} m²</td></tr>
@@ -1978,6 +1983,29 @@ function buildAreasPreviewHtml(){
   });
   html += `<table class="areas-table-lg total-table"><tbody><tr class="total"><td colspan="${span}">TOTAL</td><td class="num">${totalGeneral.toFixed(1)} m²</td></tr></tbody></table>`;
   return html;
+}
+function attachColumnResizers(container){
+  container.querySelectorAll('.areas-table-lg:not(.total-table)').forEach(table=>{
+    const cols = table.querySelectorAll('colgroup col');
+    const ths = table.querySelectorAll('th');
+    table.querySelectorAll('.col-resizer').forEach((handle, i)=>{
+      handle.onmousedown = (e)=>{
+        e.preventDefault();
+        const col = cols[i];
+        const startX = e.clientX;
+        const startW = ths[i].offsetWidth;
+        function onMove(ev){
+          col.style.width = Math.max(30, startW + (ev.clientX - startX)) + 'px';
+        }
+        function onUp(){
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      };
+    });
+  });
 }
 function buildAreasTableHtml(){
   const groups = plantas.map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
@@ -2065,6 +2093,14 @@ function parseAreaBlocks(aoa){
     if(!isLetterHeaderRow(row)) continue;
     const label = row[1] ? String(row[1]).split('(')[0].trim() : 'Espacios';
     if(/cuadro/i.test(label)) continue;
+    const headerRow = aoa[i+1] || [];
+    const extraCols = [];
+    for(let c=4;c<headerRow.length;c++){
+      if(c===5) continue; // "Tipo" ya tiene manejo nativo, no se duplica
+      if(headerRow[c]!=null && String(headerRow[c]).trim()!==''){
+        extraCols.push({idx:c, name:String(headerRow[c]).trim()});
+      }
+    }
     const items = [];
     for(let j=i+1;j<aoa.length;j++){
       const r = aoa[j] || [];
@@ -2072,7 +2108,11 @@ function parseAreaBlocks(aoa){
       if(typeof r[1]==='string' && r[1].trim().toUpperCase()==='TOTAL') break;
       if(typeof r[0]==='number' && r[1]!=null){
         const tipoRaw = r[5]!=null ? String(r[5]).trim() : '';
-        items.push({localIndex:r[0], name:String(r[1]).trim(), area:Number(r[2])||0, tipo: tipoRaw || 'Íntimo'});
+        const extra = {};
+        extraCols.forEach(ec=>{
+          if(r[ec.idx]!=null && String(r[ec.idx]).trim()!=='') extra[ec.name] = String(r[ec.idx]).trim();
+        });
+        items.push({localIndex:r[0], name:String(r[1]).trim(), area:Number(r[2])||0, tipo: tipoRaw || 'Íntimo', extra});
       }
     }
     blocks.push({label, items});
@@ -2144,12 +2184,23 @@ function importFromWorkbook(wb){
   areaBlocks.forEach((b,i)=>{ plantaColors[b.label] = PLANTA_PALETTE[i % PLANTA_PALETTE.length]; });
 
   nodes = [];
+  customColumns = []; // se reconstruyen desde cero en cada import — cada proyecto trae las suyas
+  const colKeyByName = new Map();
   const lookupByBlock = []; // lookupByBlock[blockIndex] = { localIndex: node }
   let num = 1;
   areaBlocks.forEach((b,bi)=>{
     lookupByBlock[bi] = {};
     b.items.forEach(it=>{
-      const node = {id:it.name, area:it.area, planta:b.label, tipo:it.tipo||'Íntimo', num:num++};
+      const custom = {};
+      Object.entries(it.extra||{}).forEach(([name,val])=>{
+        if(!colKeyByName.has(name)){
+          const key = 'c_'+slugify(name)+'_'+(num+colKeyByName.size);
+          colKeyByName.set(name, key);
+          customColumns.push({key, label:name, type:'text', options:[], hidden:false});
+        }
+        custom[colKeyByName.get(name)] = val;
+      });
+      const node = {id:it.name, area:it.area, planta:b.label, tipo:it.tipo||'Íntimo', num:num++, custom};
       nodes.push(node);
       lookupByBlock[bi][it.localIndex] = node;
     });
@@ -2302,7 +2353,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
         const paneId = view==='burbujas' ? 'paneBurbujas' : (view==='matrices' ? 'paneMatrices' : (view==='areas' ? 'paneAreas' : 'pane3D'));
               document.getElementById(paneId).classList.add('active');
        if(view==='matrices'){ renderMatrices(); activateAsideTab('secRelaciones'); }
-       if(view==='areas'){ document.getElementById('areasPreviewWrap').innerHTML = buildAreasPreviewHtml(); }
+         if(view==='areas'){ const wrap=document.getElementById('areasPreviewWrap'); wrap.innerHTML = buildAreasPreviewHtml(); attachColumnResizers(wrap); }
     if(view==='3d'){
       init3DIfNeeded();
       build3DScene();

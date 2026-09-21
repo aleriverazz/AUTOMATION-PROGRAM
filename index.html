@@ -2054,8 +2054,8 @@ function sheetToAOA(wb, nameFragment){
 }
 
 function isLetterHeaderRow(row){
-  const a = row[0], b = row[1];
-  return typeof a === 'string' && a.trim().length <= 2 && a.trim() === a.trim().toUpperCase() && b;
+  const a = row[0];
+  return typeof a === 'string' && a.trim().length <= 2 && a.trim() === a.trim().toUpperCase();
 }
 
 function parseAreaBlocks(aoa){
@@ -2063,7 +2063,7 @@ function parseAreaBlocks(aoa){
   for(let i=0;i<aoa.length;i++){
     const row = aoa[i] || [];
     if(!isLetterHeaderRow(row)) continue;
-    const label = String(row[1]).split('(')[0].trim();
+    const label = row[1] ? String(row[1]).split('(')[0].trim() : 'Espacios';
     if(/cuadro/i.test(label)) continue;
     const items = [];
     for(let j=i+1;j<aoa.length;j++){

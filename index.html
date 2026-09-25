@@ -177,8 +177,9 @@
   .matrix-toolbar{display:flex; align-items:center; padding:12px 18px; border-bottom:1px solid var(--border); background:var(--panel);}
   footer{padding:10px 18px; font:11px var(--mono); color:var(--ink-faint); border-top:1px solid var(--border);}
   #printArea{display:none;}
-   .print-page{width:100%; height:250mm; max-height:250mm; padding:4mm 0; overflow:hidden; page-break-after:always; box-sizing:border-box; display:flex; flex-direction:column;}
+    .print-page{width:100%; height:250mm; max-height:250mm; padding:4mm 0; overflow:hidden; page-break-after:always; box-sizing:border-box; display:flex; flex-direction:column;}
   .print-page:last-child{page-break-after:auto;}
+  .print-page.print-page-flow{height:auto; max-height:none; overflow:visible;}
     .print-head{margin-bottom:8px; padding-bottom:5px; flex:none;}
   .print-head .t1{font:700 16px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#17233B; display:block;}
   .print-head .t2{font:italic 11px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#4A5771; display:block;}
@@ -217,10 +218,11 @@
     #printArea{display:block !important;}
     @page{ size:17in 11in; margin:10mm; }
 
-    .print-body{
+        .print-body{
       height:100%;
       overflow:hidden;
     }
+    .print-page-flow .print-body{ height:auto; overflow:visible; }
     .print-body .matrix-svg-wrap{
       flex:1 1 auto;
       min-width:0;
@@ -1710,8 +1712,11 @@ function currentPayload(){
     fase: document.getElementById('fFase').value,
     elaboro: document.getElementById('fElaboro').value,
     motivos: document.getElementById('fMotivos').value,
-    plantas,
+        plantas,
     plantaColors,
+    customColumns,
+    colConfig,
+    TIPOS,
     nodes,
     edges: edges.map(e=>({source:e.source.id||e.source, target:e.target.id||e.target, motivo:e.motivo, fisica:e.fisica, importancia:e.importancia})),
        variante: c ? {
@@ -1764,7 +1769,7 @@ function exportMatricesPDF(){
   ];
 
   document.getElementById('printArea').innerHTML = pages.map(p=>`
-    <div class="print-page">
+    <div class="print-page print-page-flow">
       <div class="print-head">
         <span class="t1">${proyecto}</span>
         <span class="t2">${p.sub}</span>
@@ -2054,14 +2059,16 @@ function exportAreasPDF(){
   if(!nodes.length) return;
   const proyecto = document.getElementById('fProyecto').value || 'PROYECTO';
   const fase = document.getElementById('fFase').value || '';
+  const wrap = document.getElementById('areasPreviewWrap');
+  const tablesHtml = (wrap && wrap.innerHTML.trim()) ? wrap.innerHTML : buildAreasPreviewHtml();
   document.getElementById('printArea').innerHTML = `
-    <div class="print-page">
+    <div class="print-page print-page-flow">
       <div class="print-head">
         <span class="t1">${proyecto}</span>
         <span class="t2">Tabla de Áreas</span>
         ${fase ? `<span class="t3">Fase: ${fase}</span>` : ''}
       </div>
-      <div class="print-body" style="flex-direction:column; gap:14px;">${buildAreasTableHtml()}</div>
+      <div class="print-body" style="flex-direction:column; gap:14px;">${tablesHtml}</div>
     </div>
   `;
   window.print();
@@ -2480,6 +2487,9 @@ async function ghLoadEstudio(){
     document.getElementById('fMotivos').value = payload.motivos || '';
     plantas = payload.plantas && payload.plantas.length ? payload.plantas : ['Baja','Alta'];
     plantaColors = payload.plantaColors || {};
+    customColumns = payload.customColumns || [];
+    colConfig = payload.colConfig || {planta:{label:'3D',hidden:false}, tipo:{label:'Tipo',hidden:false}};
+    TIPOS = payload.TIPOS && payload.TIPOS.length ? payload.TIPOS : ['Social','Íntimo','Ceremonial'];
     let maxNum = 0;
     nodes = (payload.nodes || []).map((n,i)=>{
       const num = (n.num != null) ? n.num : (i+1);

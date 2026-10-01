@@ -188,7 +188,7 @@
   .print-body-split{display:flex; gap:18px; align-items:stretch; flex:1; min-height:0; overflow:hidden;}
   .print-diagram-col{flex:1; min-width:0; display:flex; align-items:center; justify-content:center; overflow:hidden;}
   .print-side-col{width:380px; flex:none; display:flex; flex-direction:column; gap:7px; overflow:hidden;}
-.legend-4col{display:grid; grid-template-columns:repeat(4,auto); column-gap:14px;}
+.legend-4col{display:grid; grid-template-columns:repeat(2,auto); column-gap:10px;}
   .legend-block{display:flex; flex-direction:column; gap:6px;}
   .areas-table{width:100%; border-collapse:collapse; font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
     .areas-table th{font:700 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:2px 4px; border-bottom:1.2px solid #17233B;}
@@ -243,6 +243,22 @@
     }
     .print-side-col{ height:100%; overflow:hidden; }
   }
+
+  @media print{
+  #printArea .areas-table-lg{width:100% !important; table-layout:auto !important; font-size:11px; border-collapse:collapse; border:1px solid #17233B; margin-bottom:0;}
+  #printArea .areas-table-lg col{width:auto !important;}
+  #printArea .areas-table-lg th, #printArea .areas-table-lg td{border:1px solid #9AA3B2; padding:3px 6px; white-space:normal;}
+  #printArea .areas-table-lg th{background:#EEF0F4; border-bottom:2px solid #17233B; font-size:9px;}
+  #printArea .areas-table-lg td.idx{width:30px; text-align:center;}
+  #printArea .areas-table-lg td.num, #printArea .areas-table-lg th:nth-child(3){width:60px; white-space:nowrap;}
+  #printArea .areas-table-lg .col-resizer{display:none;}
+  #printArea .areas-table-lg tr.subtotal td{background:#F7F8FA;}
+  #printArea .areas-table-lg tr.total td{background:#EEF0F4;}
+  #printArea .print-body{align-items:stretch !important;}
+}
+
+
+
   /* ---- Vista 3D ---- */
 #pane3D.view-pane.active{display:flex; flex-direction:column;}
 #canvas3DWrap{
@@ -1926,12 +1942,14 @@ function exportBubblePDF(){
         </div>
         <div class="print-side-col">
           ${buildAreasTableHtml()}
+          <div style="margin-top:8px; padding-top:6px; border-top:1px solid #17233B; display:flex; gap:14px; align-items:flex-start;">
+            <div class="matrix-legend-list" style="min-width:0;"><div class="lg-title">Adyacencia</div>${legendSwatchAdyacenciaLine()}</div>
+            <div class="matrix-legend-list" style="min-width:0;"><div class="lg-title">Relación Física</div><div class="legend-4col">${legendSwatchFisica()}</div></div>
+          </div>
         </div>
       </div>
       <div class="print-foot">
-               ${scaleBarSVG(scaleE)}
-        <div class="matrix-legend-list" style="min-width:0;"><div class="lg-title">Adyacencia</div>${legendSwatchAdyacenciaLine()}</div>
-        <div class="matrix-legend-list" style="min-width:0;"><div class="lg-title">Relación Física</div><div class="legend-4col">${legendSwatchFisica()}</div></div>
+        ${scaleBarSVG(scaleE)}
         <div class="print-foot-text">
           <b>Escala gráfica 1:${scaleE}</b><br>
           El diámetro de cada círculo representa el área real (m²) del espacio, dibujado a esta escala. Las distancias entre espacios son esquemáticas, no acotadas.<br>

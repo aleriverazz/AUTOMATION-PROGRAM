@@ -537,14 +537,14 @@ let plantas = [];
 let nextNodeId = 1;
 let customColumns = []; // {key, label, type:'text'|'select', options:[], hidden} — columnas del usuario
 let TIPOS = ['Social','Íntimo','Ceremonial']; // opciones de la columna "Tipo", editable
+let areasColWidths = {};
 let colConfig = {
   planta: {label:'3D', hidden:false},
   tipo:   {label:'Tipo', hidden:false}
 };
-
 function renderNodeTableHead(){
   const tr = document.getElementById('tblNodosHead');
-  let s = `<th>#</th><th>Espacio</th><th>m²</th>`;
+ let s = `<th>#</th><th>Espacio</th><th>m²</th><th>Etiq.</th>`;
   if(!colConfig.planta.hidden) s += `<th class="planta-col">${colConfig.planta.label}</th>`;
   if(!colConfig.tipo.hidden) s += `<th>${colConfig.tipo.label}</th>`;
   customColumns.forEach(col=>{ if(!col.hidden) s += `<th>${col.label}</th>`; });
@@ -1121,7 +1121,7 @@ function svgFor(result, W=1440, H=932, interactive=false){
         s += `<circle cx="${cx}" cy="${cy}" r="${R0}" fill="none" stroke="#666666" stroke-width="1"/>`;
     s += buildOrientationArcs(n, adjacency.get(n.id) || [], kScale);
 
-    if(labelMode === 'numero'){
+    if((n.lbl || labelMode) === 'numero'){
       const numSize = Math.max(7, Math.min(28, R0*0.65));
       s += `<text x="${cx}" y="${cy+numSize*0.34}" text-anchor="middle" font-size="${numSize}" font-weight="700" font-family="Arial, Inter, sans-serif" fill="#A35C8F">${n.num}</text>`;
       const areaSize = Math.max(4.5, Math.min(10, R0*0.18));
@@ -1656,6 +1656,7 @@ function renderTables(){
     tr.innerHTML = `<td class="idx-num">${n.num}</td>
       <td><input value="${n.id}" data-i="${i}" data-f="id"></td>
       <td class="num"><input type="number" step="0.5" value="${n.area}" data-i="${i}" data-f="area"></td>
+      <td><select data-i="${i}" data-f="lbl"><option value="" ${!n.lbl?'selected':''}>Global</option><option value="nombre" ${n.lbl==='nombre'?'selected':''}>Nombre</option><option value="numero" ${n.lbl==='numero'?'selected':''}>Núm.</option></select></td>
       ${mid}
       <td class="row-del" data-del="${i}">✕</td>`;
     tb.appendChild(tr);
@@ -1727,6 +1728,15 @@ function currentPayload(){
       kScale: c.result.kScale,
       nodes: c.result.nodes.map(n=>({id:n.id, num:n.num, area:n.area, planta:n.planta, x:Math.round(n.x), y:Math.round(n.y)}))
     } : null,
+    ui: {
+      labelMode, reticulaVisible, reticulaColor, edgeFilterMode,
+      bubbleScale: document.getElementById('selBubbleScale').value,
+      numConfigs: +document.getElementById('rNumConfigs').value,
+      charge: +document.getElementById('rCharge').value,
+      levelSpacing3D, show3DLabels, show3DLines,
+      plantaAlturas, plantaAlturaLabels, areasColWidths,
+      lineStyles: Object.fromEntries(Object.entries(IMPORTANCIA).map(([k,v])=>[k,{width:v.width,dash:v.dash}]))
+    },
     savedAt: new Date().toISOString()
   };
 }
@@ -1830,7 +1840,7 @@ function svgTrueScaleBubbles(scaleE, layout, filterMode){
     s += buildOrientationArcs({x:cx, y:cy, area:p.area}, othersMM, layout.kScale*mmPerUnit, 0.3);
 
     const maxChars = Math.max(4, Math.round(r*0.30));
-    const lines = wrapWords(p.id.toUpperCase(), maxChars);
+    const lines = ((p.lbl || labelMode) === 'numero') ? [String(p.num)] : wrapWords(p.id.toUpperCase(), maxChars);
     const nameSize = Math.max(0.9, Math.min(2.4, r*0.24));
     const lineH = nameSize*1.15;
     const startY = cy - ((lines.length-1)*lineH)/2 - 0.6;
@@ -1973,7 +1983,8 @@ function buildAreasPreviewHtml(){
   const groups = plantas.map(p=>({p, items: nodes.filter(n=>n.planta===p)})).filter(g=>g.items.length);
   const totalGeneral = nodes.reduce((a,n)=>a+n.area,0);
   const span = 2 + cols.length;
-  const colgroup = `<colgroup><col style="width:40px"><col style="width:200px"><col style="width:80px">${cols.map(()=>'<col style="width:140px">').join('')}</colgroup>`;
+  const defW=[40,200,80,...cols.map(()=>140)];
+const colgroup = `<colgroup>${defW.map((w,i)=>`<col style="width:${areasColWidths[i]||w}px">`).join('')}</colgroup>`;
   const headCells = ['#','Espacio','m²',...cols.map(c=>c.label)].map(label=>`<th>${label}<span class="col-resizer"></span></th>`).join('');
   let html = '';
   groups.forEach(g=>{
@@ -2001,7 +2012,9 @@ function attachColumnResizers(container){
         const startX = e.clientX;
         const startW = ths[i].offsetWidth;
         function onMove(ev){
-          col.style.width = Math.max(30, startW + (ev.clientX - startX)) + 'px';
+          const w = Math.max(30, startW + (ev.clientX - startX));
+areasColWidths[i] = w;
+container.querySelectorAll('.areas-table-lg:not(.total-table)').forEach(t=>{ const c=t.querySelectorAll('colgroup col')[i]; if(c) c.style.width=w+'px'; });
         }
         function onUp(){
           window.removeEventListener('mousemove', onMove);
@@ -2472,6 +2485,26 @@ function restoreVariante(payload){
   refresh3DIfVisible();
 }
 
+function applyUi(u){
+  if(!u) return;
+  const set=(id,v,p)=>{const el=document.getElementById(id); if(el&&v!=null) el[p||'value']=v;};
+  labelMode=u.labelMode||'nombre'; set('rLabelMode',labelMode);
+  reticulaVisible=u.reticulaVisible!==false; set('chkReticula',reticulaVisible,'checked');
+  reticulaColor=u.reticulaColor||reticulaColor; set('colReticula',reticulaColor);
+  edgeFilterMode=u.edgeFilterMode||'todas';
+  document.querySelectorAll('#edgeFilterTabs .edge-tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter===edgeFilterMode));
+  set('selBubbleScale',u.bubbleScale);
+  set('rNumConfigs',u.numConfigs); set('vNumConfigs',u.numConfigs,'textContent');
+  set('rCharge',u.charge); set('vCharge',u.charge,'textContent');
+  levelSpacing3D=u.levelSpacing3D||300; set('r3DSpacing',levelSpacing3D); set('v3DSpacing',levelSpacing3D,'textContent');
+  show3DLabels=u.show3DLabels!==false; set('chk3DLabels',show3DLabels,'checked');
+  show3DLines=u.show3DLines!==false; set('chk3DLines',show3DLines,'checked');
+  plantaAlturas=u.plantaAlturas||{}; plantaAlturaLabels=u.plantaAlturaLabels||{};
+  areasColWidths=u.areasColWidths||{};
+  Object.entries(u.lineStyles||{}).forEach(([k,v])=>{ if(IMPORTANCIA[k]){IMPORTANCIA[k].width=v.width; IMPORTANCIA[k].dash=v.dash;} });
+  renderLineStyleControls(); renderLegend();
+}
+
 async function ghLoadEstudio(){
   const cfg = ghConfig();
   const sel = document.getElementById('ghList');
@@ -2501,6 +2534,7 @@ async function ghLoadEstudio(){
     });
         nextNodeId = maxNum + 1;
     edges = payload.edges || [];
+    applyUi(payload.ui);
       renderPlantaChips();
     renderTables();
     restoreVariante(payload);
@@ -2999,12 +3033,28 @@ function setAsideCollapsed(collapsed){
       const c = currentConfigs[selectedIndex];
       const n = c && c.result.nodes.find(nd=>nd.id===dragNodeId);
       if(n){ n.x = dragOrigX+dx; n.y = dragOrigY+dy; }
+      window.lastTap = window.lastTap || {id:null,t:0};
+      if(Math.hypot(e.clientX-dragStartClientX, e.clientY-dragStartClientY) < 4){
+        const now = Date.now();
+        if(window.lastTap.id === dragNodeId && now - window.lastTap.t < 450){
+          const nd = nodes.find(q=>q.id===dragNodeId);
+          if(nd){
+            nd.lbl = ((nd.lbl || labelMode) === 'numero') ? 'nombre' : 'numero';
+            currentConfigs.forEach(cc=>{ const m=cc.result.nodes.find(q=>q.id===nd.id); if(m) m.lbl=nd.lbl; });
+            renderGrid(); renderTables();
+          }
+          window.lastTap = {id:null,t:0};
+        } else {
+          window.lastTap = {id:dragNodeId,t:now};
+        }
+      }
       dragNodeId=null; dragNodeEl=null;
       renderDetail();
       return;
     }
     panning=false; svg.style.cursor='grab';
   });
+
 
   document.getElementById('btnZoomIn').onclick = ()=> zoomBy(1.25, 720, 466);
   document.getElementById('btnZoomOut').onclick = ()=> zoomBy(1/1.25, 720, 466);

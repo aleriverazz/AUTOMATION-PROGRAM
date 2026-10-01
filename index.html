@@ -187,12 +187,13 @@
   .print-body{display:flex; gap:32px; align-items:flex-start; flex:1; min-height:0; overflow:hidden;}
   .print-body-split{display:flex; gap:18px; align-items:stretch; flex:1; min-height:0; overflow:hidden;}
   .print-diagram-col{flex:1; min-width:0; display:flex; align-items:center; justify-content:center; overflow:hidden;}
-  .print-side-col{width:250px; flex:none; display:flex; flex-direction:column; gap:7px; overflow:hidden;}
+  .print-side-col{width:380px; flex:none; display:flex; flex-direction:column; gap:7px; overflow:hidden;}
+.legend-4col{display:grid; grid-template-columns:repeat(4,auto); column-gap:14px;}
   .legend-block{display:flex; flex-direction:column; gap:6px;}
-  .areas-table{width:250px; border-collapse:collapse; font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
+  .areas-table{width:100%; border-collapse:collapse; font:8.5px 'Helvetica Neue',Helvetica,Arial,sans-serif;}
     .areas-table th{font:700 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:.03em; text-align:left; padding:2px 4px; border-bottom:1.2px solid #17233B;}
   .areas-table th:nth-child(3){text-align:right;}
-  .areas-table td{padding:1.6px 4px; border-bottom:1px solid #E3E6EC;}
+  .areas-table td{padding:1.6px 4px; border-bottom:1px solid #E3E6EC; white-space:nowrap;}
   .areas-table td.idx{font:italic 7.5px 'Helvetica Neue',Helvetica,Arial,sans-serif; color:#8A93A3; width:18px;}
   .areas-table td.num{text-align:right; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
   .areas-table tr.subtotal td{font-weight:600; border-top:1px solid #17233B; padding-top:2px;}
@@ -1925,14 +1926,12 @@ function exportBubblePDF(){
         </div>
         <div class="print-side-col">
           ${buildAreasTableHtml()}
-          <div class="legend-block">
-            <div class="matrix-legend-list"><div class="lg-title">Adyacencia</div>${legendSwatchAdyacenciaLine()}</div>
-            <div class="matrix-legend-list"><div class="lg-title">Relación Física</div><div class="legend-2col">${legendSwatchFisica()}</div></div>
-          </div>
         </div>
       </div>
       <div class="print-foot">
-        ${scaleBarSVG(scaleE)}
+               ${scaleBarSVG(scaleE)}
+        <div class="matrix-legend-list" style="min-width:0;"><div class="lg-title">Adyacencia</div>${legendSwatchAdyacenciaLine()}</div>
+        <div class="matrix-legend-list" style="min-width:0;"><div class="lg-title">Relación Física</div><div class="legend-4col">${legendSwatchFisica()}</div></div>
         <div class="print-foot-text">
           <b>Escala gráfica 1:${scaleE}</b><br>
           El diámetro de cada círculo representa el área real (m²) del espacio, dibujado a esta escala. Las distancias entre espacios son esquemáticas, no acotadas.<br>

@@ -338,6 +338,7 @@
       </div>
       <select id="ghList" size="4" style="font:11px var(--mono); border:1px solid var(--border); background:#fff;"></select>
       <button class="ghost" id="btnGhLoad">Cargar seleccionado</button>
+      <button id="btnGhOverwrite">Guardar cambios</button>
           <div id="ghStatus" style="font:10px var(--mono); color:var(--ink-faint); min-height:14px;"></div>
     </div>
     </div>
@@ -2404,11 +2405,12 @@ function saveGhConfigToStorage(){
   localStorage.setItem('ghConfig', JSON.stringify({owner:cfg.owner, repo:cfg.repo, token:cfg.token}));
 }
 
-async function ghSaveEstudio(){
+let currentEstudioSlug = null;
+async function ghSaveEstudio(forceSlug){
   const cfg = ghConfig();
   if(!cfg.owner || !cfg.repo || !cfg.token){ ghStatus('faltan owner/repo/token', true); return; }
   saveGhConfigToStorage();
-  const slug = slugify(document.getElementById('fProyecto').value || 'estudio');
+  const slug = forceSlug || slugify(document.getElementById('fProyecto').value || 'estudio');
   const path = `estudios/${slug}/matrices.json`;
   const payload = currentPayload();
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
@@ -2421,8 +2423,9 @@ async function ghSaveEstudio(){
       method:'PUT', headers: ghHeaders(cfg),
       body: JSON.stringify({ message:`Guardar estudio: ${slug}`, content, branch: cfg.branch, sha })
     });
-    if(!putRes.ok){ const err = await putRes.json(); throw new Error(err.message||putRes.status); }
+       if(!putRes.ok){ const err = await putRes.json(); throw new Error(err.message||putRes.status); }
     ghStatus(`guardado: ${path}`);
+    currentEstudioSlug = slug;
     ghRefreshList();
   }catch(err){
     ghStatus('error al guardar: '+err.message, true);
@@ -2498,16 +2501,21 @@ async function ghLoadEstudio(){
     });
         nextNodeId = maxNum + 1;
     edges = payload.edges || [];
-    renderPlantaChips();
+      renderPlantaChips();
     renderTables();
     restoreVariante(payload);
     ghStatus(`cargado: ${slug}`);
+    currentEstudioSlug = slug;
   }catch(err){
     ghStatus('error al cargar: '+err.message, true);
   }
 }
 
-document.getElementById('btnGhSave').onclick = ghSaveEstudio;
+document.getElementById('btnGhSave').onclick = ()=>ghSaveEstudio();
+document.getElementById('btnGhOverwrite').onclick = ()=>{
+  if(!currentEstudioSlug){ ghStatus('primero carga un estudio', true); return; }
+  ghSaveEstudio(currentEstudioSlug);
+};
 document.getElementById('btnGhRefresh').onclick = ghRefreshList;
 document.getElementById('btnGhLoad').onclick = ghLoadEstudio;
 loadGhConfigFromStorage();

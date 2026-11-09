@@ -368,6 +368,7 @@
            <button class="tab-btn active" data-view="burbujas" type="button">Burbujas</button>
       <button class="tab-btn" data-view="matrices" type="button">Matrices</button>
       <button class="tab-btn" data-view="3d" type="button">3D</button>
+      <button class="tab-btn" data-view="cubes" type="button">Cube Analysis</button>
       <button class="tab-btn" data-view="areas" type="button">Áreas</button>
     </div>
 
@@ -470,6 +471,7 @@
           </select>
         </div>
         <div class="tb-spacer"></div>
+        <button class="ghost" id="btnExportRhino" style="display:none;">Exportar a Rhino (DXF)</button>
         <button class="ghost" id="btnReset3D">Restablecer vista</button>
       </div>
       <div id="canvas3DWrap">
@@ -2392,7 +2394,9 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
               document.getElementById(paneId).classList.add('active');
        if(view==='matrices'){ renderMatrices(); activateAsideTab('secRelaciones'); }
          if(view==='areas'){ const wrap=document.getElementById('areasPreviewWrap'); wrap.innerHTML = buildAreasPreviewHtml(); attachColumnResizers(wrap); }
-    if(view==='3d'){
+        document.getElementById('btnExportRhino').style.display = view==='cubes' ? '' : 'none';
+    if(view==='3d' || view==='cubes'){
+      shape3D = view==='cubes' ? 'cube' : 'sphere';
       init3DIfNeeded();
       build3DScene();
       start3DLoop();
@@ -2583,6 +2587,7 @@ let rafId3D = null;
 let levelSpacing3D = 300;
 let show3DLabels = true;
 let show3DLines = true;
+let shape3D = 'sphere';
 
 const orbit3D = {
   radius: 1900,
@@ -2735,18 +2740,21 @@ function build3DScene(){
     const py = baseY + ajuste;
 
     const colorHex = cssVarToHex(plantaColor(n.planta), '#3E6E8E');
-    const geo = new THREE.SphereGeometry(R, 24, 18);
+        const S = R*Math.sqrt(Math.PI);
+    const geo = shape3D==='cube' ? new THREE.BoxGeometry(S,S,S) : new THREE.SphereGeometry(R,24,18);
+    const HH = shape3D==='cube' ? S/2 : R;
     const mat = new THREE.MeshStandardMaterial({color: colorHex, roughness:0.55, metalness:0.05});
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(px, py, pz);
     mesh.userData = {name:n.id, area:n.area, planta:n.planta, nodeId:n.id, baseY, ajuste};
     group.add(mesh);
+        if(shape3D==='cube') mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({color:0x17233B})));
     three3D.spheres.push(mesh);
     byId.set(n.id, {x:px, y:py, z:pz, R});
 
     if(show3DLabels){
       const sprite = makeTextSprite3D(`${n.id}\n${n.area} m²`);
-      sprite.position.set(px, py + R + 26, pz);
+      sprite.position.set(px, py + HH + 26, pz);
       sprite.userData.isLabel = true;
       group.add(sprite);
     }
@@ -2948,6 +2956,37 @@ document.getElementById('r3DSpacing').oninput = (e)=>{
   refresh3DIfVisible();
 };
 document.getElementById('btnReset3D').onclick = ()=>{ reset3DView(); };
+function exportCubesDXF(){
+  const c = currentConfigs[selectedIndex]; if(!c) return;
+  const m = 1/(Math.sqrt(Math.PI)*c.result.kScale);
+  const lay = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_]/g,'_');
+  let d = '0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n6\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n';
+  const P = new Map();
+  const F = [[0,1,2,3],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]];
+  const C = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+  c.result.nodes.forEach(n=>{
+    const h = Math.sqrt(n.area)/2;
+    const X = (n.x-TABLO_W/2)*m, Y = -(n.y-TABLO_H/2)*m;
+    const Z = (getPlantaAltura(n.planta)+(n.alturaAjuste||0))/100;
+    const v = C.map(([a,b,e])=>[X+a*h, Y+b*h, Z+e*h]);
+    F.forEach(f=>{
+      d += `0\n3DFACE\n8\n${lay(n.planta)}\n`;
+      f.forEach((vi,i)=>{ d += `${10+i}\n${v[vi][0].toFixed(3)}\n${20+i}\n${v[vi][1].toFixed(3)}\n${30+i}\n${v[vi][2].toFixed(3)}\n`; });
+    });
+    const txt = `${n.num} ${n.id} ${n.area}m2`.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    d += `0\nTEXT\n8\nNOMBRES\n10\n${X.toFixed(3)}\n20\n${Y.toFixed(3)}\n30\n${(Z+h).toFixed(3)}\n40\n0.25\n1\n${txt}\n`;
+    P.set(n.id,[X,Y,Z]);
+  });
+  (c.result.edges||edges).forEach(e=>{
+    if(!['mandatoria','deseable'].includes(e.importancia)) return;
+    const a = P.get(e.source.id||e.source), b = P.get(e.target.id||e.target);
+    if(!a||!b) return;
+    d += `0\nLINE\n8\nREL_${e.importancia.toUpperCase()}\n10\n${a[0].toFixed(3)}\n20\n${a[1].toFixed(3)}\n30\n${a[2].toFixed(3)}\n11\n${b[0].toFixed(3)}\n21\n${b[1].toFixed(3)}\n31\n${b[2].toFixed(3)}\n`;
+  });
+  d += '0\nENDSEC\n0\nEOF\n';
+  download(`${slugify(document.getElementById('fProyecto').value||'cubes')}_cube-analysis_v${selectedIndex+1}.dxf`, d, 'application/dxf');
+}
+document.getElementById('btnExportRhino').onclick = exportCubesDXF;
 
 /* =========================================================================
    9) PANEL LATERAL REDIMENSIONABLE
